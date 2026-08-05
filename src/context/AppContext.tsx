@@ -1,0 +1,724 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  type ReactNode,
+} from 'react'
+import confetti from 'canvas-confetti'
+import type {
+  AppNotification,
+  AppSettings,
+  AppState,
+  DailyProgress,
+  HistoryEntry,
+  Platform,
+  RevenueEntry,
+  TimelineStatus,
+} from '@/types'
+import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
+import { loadState, saveState, clearState, importState } from '@/lib/storage'
+import {
+  generateId,
+  overallProgress,
+  productivityScore,
+  sectionProgress,
+  todayKey,
+  currentTimeString,
+  sumCounters,
+  getMetric,
+} from '@/lib/utils'
+
+type Action =
+  | { type: 'HYDRATE'; state: AppState }
+  | { type: 'RESET' }
+  | { type: 'IMPORT'; state: AppState }
+  | { type: 'UPDATE_SETTINGS'; settings: Partial<AppSettings> }
+  | { type: 'TOGGLE_CHECKLIST'; platform: Platform; itemId: string }
+  | { type: 'UPDATE_COUNTER'; platform: Platform; counterId: string; delta: number }
+  | { type: 'SET_COUNTER'; platform: Platform; counterId: string; value: number }
+  | { type: 'SET_NOTES'; platform: Platform; notes: string }
+  | { type: 'SET_DAILY_NOTES'; notes: string }
+  | { type: 'MARK_PLATFORM_COMPLETE'; platform: Platform; completed: boolean }
+  | { type: 'TIMELINE_ACTION'; id: Platform; action: 'start' | 'pause' | 'complete' | 'skip' | 'tick' }
+  | { type: 'ADD_REVENUE'; entry: Omit<RevenueEntry, 'id' | 'createdAt'> }
+  | { type: 'UPDATE_REVENUE'; id: string; entry: Partial<RevenueEntry> }
+  | { type: 'DELETE_REVENUE'; id: string }
+  | { type: 'ADD_NOTIFICATION'; notification: Omit<AppNotification, 'id' | 'createdAt' | 'read'> }
+  | { type: 'MARK_NOTIFICATION_READ'; id: string }
+  | { type: 'MARK_ALL_NOTIFICATIONS_READ' }
+  | { type: 'CLEAR_NOTIFICATIONS' }
+  | { type: 'SAVE_DAY_TO_HISTORY' }
+  | { type: 'ENSURE_TODAY' }
+  | { type: 'START_DAY' }
+  | { type: 'FINISH_DAY' }
+  | { type: 'RESUME_DAY' }
+  | { type: 'SET_CONFETTI_SHOWN' }
+  | { type: 'UPDATE_STREAK' }
+
+function ensureSectionComplete(progress: DailyProgress, platform: Platform): DailyProgress {
+  const section = progress.platforms[platform]
+  const { percent } = sectionProgress(section)
+  const completed = percent >= 100
+  if (section.completed === completed) return progress
+  return {
+    ...progress,
+    platforms: {
+      ...progress.platforms,
+      [platform]: { ...section, completed },
+    },
+  }
+}
+
+function reducer(state: AppState, action: Action): AppState {
+  switch (action.type) {
+    case 'HYDRATE':
+    case 'IMPORT':
+      return action.state
+    case 'RESET':
+      return createDefaultState()
+    case 'ENSURE_TODAY': {
+      const today = todayKey()
+      if (state.dailyProgress.date === today) {
+        // Migrate older saves missing dayStatus
+        if (!state.dailyProgress.dayStatus) {
+          return {
+            ...state,
+            dailyProgress: {
+              ...state.dailyProgress,
+              dayStatus: 'not_started',
+              dayStartedAt: null,
+              dayFinishedAt: null,
+            },
+          }
+        }
+        return state
+      }
+      // Calendar rolled over — archive previous day if it had work or was finished
+      const prev = state.dailyProgress
+      const ov = overallProgress(prev)
+      let history = state.history
+      const shouldArchive =
+        prev.dayStatus === 'finished' ||
+        prev.dayStatus === 'in_progress' ||
+        ov.tasksCompleted > 0
+      if (shouldArchive) {
+        const entry = {
+          ...buildHistoryEntry(prev, state),
+          dayStatus: prev.dayStatus ?? 'finished',
+          dayFinishedAt: prev.dayFinishedAt ?? new Date().toISOString(),
+        }
+        history = [entry, ...history.filter((h) => h.date !== prev.date)]
+      }
+      return {
+        ...state,
+        history,
+        dailyProgress: createDailyProgress(state.settings.dailyTargets, state.settings.timeline, today),
+      }
+    }
+    case 'START_DAY': {
+      const today = todayKey()
+      const current = state.dailyProgress
+      // Already working today
+      if (current.date === today && current.dayStatus === 'in_progress') {
+        return state
+      }
+      // Resume finished today without wiping
+      if (current.date === today && current.dayStatus === 'finished') {
+        return {
+          ...state,
+          dailyProgress: {
+            ...current,
+            dayStatus: 'in_progress',
+            dayFinishedAt: null,
+          },
+        }
+      }
+      // Fresh start for today (or leftover from another date)
+      let history = state.history
+      if (current.date !== today) {
+        const ov = overallProgress(current)
+        if (current.dayStatus === 'in_progress' || current.dayStatus === 'finished' || ov.tasksCompleted > 0) {
+          history = [
+            {
+              ...buildHistoryEntry(current, state),
+              dayFinishedAt: current.dayFinishedAt ?? new Date().toISOString(),
+            },
+            ...history.filter((h) => h.date !== current.date),
+          ]
+        }
+      }
+      const fresh =
+        current.date === today && current.dayStatus === 'not_started'
+          ? current
+          : createDailyProgress(state.settings.dailyTargets, state.settings.timeline, today)
+      return {
+        ...state,
+        history,
+        dailyProgress: {
+          ...fresh,
+          dayStatus: 'in_progress',
+          dayStartedAt: new Date().toISOString(),
+          dayFinishedAt: null,
+        },
+      }
+    }
+    case 'FINISH_DAY': {
+      if (state.dailyProgress.dayStatus !== 'in_progress') return state
+      const finishedAt = new Date().toISOString()
+      const progress = {
+        ...state.dailyProgress,
+        dayStatus: 'finished' as const,
+        dayFinishedAt: finishedAt,
+        timeline: state.dailyProgress.timeline.map((b) =>
+          b.status === 'active' ? { ...b, status: 'paused' as const } : b
+        ),
+      }
+      const entry = {
+        ...buildHistoryEntry(progress, state),
+        dayStartedAt: progress.dayStartedAt,
+        dayFinishedAt: finishedAt,
+        dayStatus: 'finished' as const,
+      }
+      const history = [entry, ...state.history.filter((h) => h.date !== entry.date)]
+
+      // Streak: count the day if completion is meaningful (>= 50%) or perfect
+      const ov = overallProgress(progress)
+      let settings = state.settings
+      if (ov.percent >= 50 && settings.lastCompletedDate !== progress.date) {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+        const streak = settings.lastCompletedDate === yKey ? settings.streak + 1 : 1
+        settings = {
+          ...settings,
+          streak,
+          lastCompletedDate: progress.date,
+          longestStreak: Math.max(settings.longestStreak, streak),
+        }
+      }
+
+      return {
+        ...state,
+        settings,
+        history,
+        dailyProgress: progress,
+        notifications: [
+          {
+            id: generateId(),
+            title: 'Day Finished',
+            body: `Saved to History · ${ov.percent}% complete · Score ${productivityScore(progress)}`,
+            time: currentTimeString(),
+            createdAt: finishedAt,
+            read: false,
+            type: 'achievement' as const,
+          },
+          ...state.notifications,
+        ].slice(0, 50),
+      }
+    }
+    case 'RESUME_DAY': {
+      if (state.dailyProgress.dayStatus !== 'finished') return state
+      if (state.dailyProgress.date !== todayKey()) return state
+      return {
+        ...state,
+        dailyProgress: {
+          ...state.dailyProgress,
+          dayStatus: 'in_progress',
+          dayFinishedAt: null,
+        },
+      }
+    }
+    case 'UPDATE_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.settings } }
+    case 'TOGGLE_CHECKLIST': {
+      let progress = { ...state.dailyProgress }
+      const section = progress.platforms[action.platform]
+      const checklist = section.checklist.map((item) =>
+        item.id === action.itemId ? { ...item, completed: !item.completed } : item
+      )
+      progress = {
+        ...progress,
+        platforms: {
+          ...progress.platforms,
+          [action.platform]: { ...section, checklist },
+        },
+      }
+      progress = ensureSectionComplete(progress, action.platform)
+      return { ...state, dailyProgress: progress }
+    }
+    case 'UPDATE_COUNTER': {
+      let progress = { ...state.dailyProgress }
+      const section = progress.platforms[action.platform]
+      const counters = section.counters.map((c) =>
+        c.id === action.counterId
+          ? { ...c, completed: Math.max(0, c.completed + action.delta) }
+          : c
+      )
+      progress = {
+        ...progress,
+        platforms: {
+          ...progress.platforms,
+          [action.platform]: { ...section, counters },
+        },
+      }
+      progress = ensureSectionComplete(progress, action.platform)
+      return { ...state, dailyProgress: progress }
+    }
+    case 'SET_COUNTER': {
+      let progress = { ...state.dailyProgress }
+      const section = progress.platforms[action.platform]
+      const counters = section.counters.map((c) =>
+        c.id === action.counterId ? { ...c, completed: Math.max(0, action.value) } : c
+      )
+      progress = {
+        ...progress,
+        platforms: {
+          ...progress.platforms,
+          [action.platform]: { ...section, counters },
+        },
+      }
+      progress = ensureSectionComplete(progress, action.platform)
+      return { ...state, dailyProgress: progress }
+    }
+    case 'SET_NOTES': {
+      const section = state.dailyProgress.platforms[action.platform]
+      return {
+        ...state,
+        dailyProgress: {
+          ...state.dailyProgress,
+          platforms: {
+            ...state.dailyProgress.platforms,
+            [action.platform]: { ...section, notes: action.notes },
+          },
+        },
+      }
+    }
+    case 'SET_DAILY_NOTES':
+      return { ...state, dailyProgress: { ...state.dailyProgress, dailyNotes: action.notes } }
+    case 'MARK_PLATFORM_COMPLETE': {
+      const section = state.dailyProgress.platforms[action.platform]
+      return {
+        ...state,
+        dailyProgress: {
+          ...state.dailyProgress,
+          platforms: {
+            ...state.dailyProgress.platforms,
+            [action.platform]: { ...section, completed: action.completed },
+          },
+        },
+      }
+    }
+    case 'TIMELINE_ACTION': {
+      const timeline = state.dailyProgress.timeline.map((block) => {
+        if (block.id !== action.id) {
+          // Pause other active blocks when starting a new one
+          if (action.action === 'start' && block.status === 'active') {
+            return { ...block, status: 'paused' as TimelineStatus }
+          }
+          return block
+        }
+        switch (action.action) {
+          case 'start':
+            return { ...block, status: 'active' as TimelineStatus, startedAt: block.startedAt ?? new Date().toISOString() }
+          case 'pause':
+            return { ...block, status: 'paused' as TimelineStatus }
+          case 'complete':
+            return {
+              ...block,
+              status: 'completed' as TimelineStatus,
+              completedAt: new Date().toISOString(),
+            }
+          case 'skip':
+            return { ...block, status: 'skipped' as TimelineStatus }
+          case 'tick':
+            if (block.status !== 'active') return block
+            return { ...block, elapsedSeconds: block.elapsedSeconds + 1 }
+          default:
+            return block
+        }
+      })
+
+      let totalTime = state.dailyProgress.totalTimeWorkedSeconds
+      if (action.action === 'tick') {
+        const active = state.dailyProgress.timeline.find((t) => t.id === action.id && t.status === 'active')
+        if (active) totalTime += 1
+      }
+
+      return {
+        ...state,
+        dailyProgress: { ...state.dailyProgress, timeline, totalTimeWorkedSeconds: totalTime },
+      }
+    }
+    case 'ADD_REVENUE':
+      return {
+        ...state,
+        revenue: [
+          {
+            ...action.entry,
+            id: generateId(),
+            createdAt: new Date().toISOString(),
+          },
+          ...state.revenue,
+        ],
+      }
+    case 'UPDATE_REVENUE':
+      return {
+        ...state,
+        revenue: state.revenue.map((r) => (r.id === action.id ? { ...r, ...action.entry } : r)),
+      }
+    case 'DELETE_REVENUE':
+      return { ...state, revenue: state.revenue.filter((r) => r.id !== action.id) }
+    case 'ADD_NOTIFICATION':
+      return {
+        ...state,
+        notifications: [
+          {
+            ...action.notification,
+            id: generateId(),
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...state.notifications,
+        ].slice(0, 50),
+      }
+    case 'MARK_NOTIFICATION_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map((n) =>
+          n.id === action.id ? { ...n, read: true } : n
+        ),
+      }
+    case 'MARK_ALL_NOTIFICATIONS_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map((n) => ({ ...n, read: true })),
+      }
+    case 'CLEAR_NOTIFICATIONS':
+      return { ...state, notifications: [] }
+    case 'SAVE_DAY_TO_HISTORY': {
+      const entry = buildHistoryEntry(state.dailyProgress, state)
+      const history = [entry, ...state.history.filter((h) => h.date !== entry.date)]
+      return { ...state, history }
+    }
+    case 'SET_CONFETTI_SHOWN':
+      return { ...state, dailyProgress: { ...state.dailyProgress, confettiShown: true } }
+    case 'UPDATE_STREAK': {
+      const today = todayKey()
+      const { percent } = overallProgress(state.dailyProgress)
+      if (percent < 100) return state
+      if (state.settings.lastCompletedDate === today) return state
+
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+      const streak =
+        state.settings.lastCompletedDate === yKey ? state.settings.streak + 1 : 1
+
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          streak,
+          lastCompletedDate: today,
+          longestStreak: Math.max(state.settings.longestStreak, streak),
+        },
+      }
+    }
+    default:
+      return state
+  }
+}
+
+function buildHistoryEntry(progress: DailyProgress, state: AppState): HistoryEntry {
+  const ov = overallProgress(progress)
+  const dayRevenue = state.revenue
+    .filter((r) => r.date === progress.date)
+    .reduce((s, r) => s + r.amount, 0)
+
+  return {
+    date: progress.date,
+    completionPercent: ov.percent,
+    tasksCompleted: ov.tasksCompleted,
+    tasksTotal: ov.tasksTotal,
+    connections:
+      (getMetric(progress.platforms, 'linkedin_saad', 'connections')?.completed ?? 0) +
+      (getMetric(progress.platforms, 'linkedin_umair', 'connections')?.completed ?? 0),
+    followUps:
+      (getMetric(progress.platforms, 'linkedin_saad', 'followups')?.completed ?? 0) +
+      (getMetric(progress.platforms, 'linkedin_umair', 'followups')?.completed ?? 0),
+    facebookComments: getMetric(progress.platforms, 'facebook', 'comments')?.completed ?? 0,
+    facebookDms: getMetric(progress.platforms, 'facebook', 'dms')?.completed ?? 0,
+    jobsReviewed: getMetric(progress.platforms, 'upwork', 'jobs_reviewed')?.completed ?? 0,
+    proposalsSent: getMetric(progress.platforms, 'upwork', 'proposals')?.completed ?? 0,
+    revenue: dayRevenue,
+    notes: progress.dailyNotes,
+    totalTimeWorkedSeconds: progress.totalTimeWorkedSeconds,
+    productivityScore: productivityScore(progress),
+    dayStartedAt: progress.dayStartedAt,
+    dayFinishedAt: progress.dayFinishedAt,
+    dayStatus: progress.dayStatus,
+  }
+}
+
+interface AppContextValue {
+  state: AppState
+  progress: DailyProgress
+  settings: AppSettings
+  overall: ReturnType<typeof overallProgress>
+  score: number
+  dispatch: React.Dispatch<Action>
+  toggleChecklist: (platform: Platform, itemId: string) => void
+  updateCounter: (platform: Platform, counterId: string, delta: number) => void
+  setCounter: (platform: Platform, counterId: string, value: number) => void
+  setNotes: (platform: Platform, notes: string) => void
+  timelineAction: (id: Platform, action: 'start' | 'pause' | 'complete' | 'skip') => void
+  addRevenue: (entry: Omit<RevenueEntry, 'id' | 'createdAt'>) => void
+  updateRevenue: (id: string, entry: Partial<RevenueEntry>) => void
+  deleteRevenue: (id: string) => void
+  updateSettings: (settings: Partial<AppSettings>) => void
+  resetDashboard: () => void
+  importDashboard: (json: string) => void
+  saveToday: () => void
+  startDay: () => void
+  finishDay: () => void
+  resumeDay: () => void
+  markNotificationRead: (id: string) => void
+  markAllNotificationsRead: () => void
+  clearNotifications: () => void
+  notifications: AppNotification[]
+  unreadCount: number
+  todayStats: {
+    connections: number
+    followUps: number
+    facebookComments: number
+    facebookDms: number
+    jobsReviewed: number
+    proposalsSent: number
+    monthlyRevenue: number
+    unreadMessages: number
+  }
+}
+
+const AppContext = createContext<AppContextValue | null>(null)
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, undefined, loadState)
+  const hydrated = useRef(false)
+  const notifiedSlots = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    dispatch({ type: 'ENSURE_TODAY' })
+    hydrated.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated.current) return
+    saveState(state)
+  }, [state])
+
+  // Theme
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', state.settings.theme === 'dark')
+    document.documentElement.classList.toggle('light', state.settings.theme === 'light')
+  }, [state.settings.theme])
+
+  // Timeline tick
+  useEffect(() => {
+    const active = state.dailyProgress.timeline.find((t) => t.status === 'active')
+    if (!active) return
+    const id = setInterval(() => {
+      dispatch({ type: 'TIMELINE_ACTION', id: active.id, action: 'tick' })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [state.dailyProgress.timeline])
+
+  // Confetti + streak on 100%
+  const overall = useMemo(() => overallProgress(state.dailyProgress), [state.dailyProgress])
+  useEffect(() => {
+    if (overall.percent >= 100 && !state.dailyProgress.confettiShown) {
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b'],
+      })
+      dispatch({ type: 'SET_CONFETTI_SHOWN' })
+      dispatch({ type: 'UPDATE_STREAK' })
+      dispatch({ type: 'SAVE_DAY_TO_HISTORY' })
+      dispatch({
+        type: 'ADD_NOTIFICATION',
+        notification: {
+          title: '🎉 Day Complete!',
+          body: 'You completed every business development activity today. Keep the streak alive!',
+          time: currentTimeString(),
+          type: 'achievement',
+        },
+      })
+    }
+  }, [overall.percent, state.dailyProgress.confettiShown])
+
+  // Schedule notifications
+  useEffect(() => {
+    if (!state.settings.notificationsEnabled) return
+    const check = () => {
+      const now = currentTimeString()
+      const today = todayKey()
+      Object.entries(state.settings.reminderTimes).forEach(([platform, time]) => {
+        const key = `${today}-${platform}-${time}`
+        if (now === time && !notifiedSlots.current.has(key)) {
+          notifiedSlots.current.add(key)
+          const body = SCHEDULE_MESSAGES[platform as Platform]
+          dispatch({
+            type: 'ADD_NOTIFICATION',
+            notification: {
+              title: 'Schedule Reminder',
+              body,
+              time: now,
+              type: 'schedule',
+            },
+          })
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('BD Dashboard', { body, icon: '/favicon.svg' })
+          }
+        }
+      })
+    }
+    check()
+    const id = setInterval(check, 15000)
+    return () => clearInterval(id)
+  }, [state.settings.notificationsEnabled, state.settings.reminderTimes])
+
+  // Incomplete task reminders (every hour at :00)
+  useEffect(() => {
+    if (!state.settings.notificationsEnabled) return
+    const id = setInterval(() => {
+      const d = new Date()
+      if (d.getMinutes() !== 0) return
+      const ov = overallProgress(state.dailyProgress)
+      if (
+        state.dailyProgress.dayStatus === 'in_progress' &&
+        ov.remaining > 0 &&
+        ov.percent < 100
+      ) {
+        const key = `incomplete-${todayKey()}-${d.getHours()}`
+        if (notifiedSlots.current.has(key)) return
+        notifiedSlots.current.add(key)
+        dispatch({
+          type: 'ADD_NOTIFICATION',
+          notification: {
+            title: 'Incomplete Tasks',
+            body: `${ov.remaining} tasks remaining · ${ov.percent}% complete today`,
+            time: currentTimeString(),
+            type: 'reminder',
+          },
+        })
+      }
+    }, 30000)
+    return () => clearInterval(id)
+  }, [state.settings.notificationsEnabled, state.dailyProgress])
+
+  const todayStats = useMemo(() => {
+    const p = state.dailyProgress.platforms
+    const now = new Date()
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const monthlyRevenue = state.revenue
+      .filter((r) => r.date.startsWith(monthPrefix))
+      .reduce((s, r) => s + r.amount, 0)
+
+    return {
+      connections:
+        (getMetric(p, 'linkedin_saad', 'connections')?.completed ?? 0) +
+        (getMetric(p, 'linkedin_umair', 'connections')?.completed ?? 0),
+      followUps:
+        (getMetric(p, 'linkedin_saad', 'followups')?.completed ?? 0) +
+        (getMetric(p, 'linkedin_umair', 'followups')?.completed ?? 0),
+      facebookComments: getMetric(p, 'facebook', 'comments')?.completed ?? 0,
+      facebookDms: getMetric(p, 'facebook', 'dms')?.completed ?? 0,
+      jobsReviewed: getMetric(p, 'upwork', 'jobs_reviewed')?.completed ?? 0,
+      proposalsSent: getMetric(p, 'upwork', 'proposals')?.completed ?? 0,
+      monthlyRevenue,
+      unreadMessages: 0,
+    }
+  }, [state.dailyProgress, state.revenue])
+
+  const value: AppContextValue = {
+    state,
+    progress: state.dailyProgress,
+    settings: state.settings,
+    overall,
+    score: productivityScore(state.dailyProgress),
+    dispatch,
+    toggleChecklist: useCallback(
+      (platform, itemId) => dispatch({ type: 'TOGGLE_CHECKLIST', platform, itemId }),
+      []
+    ),
+    updateCounter: useCallback(
+      (platform, counterId, delta) => dispatch({ type: 'UPDATE_COUNTER', platform, counterId, delta }),
+      []
+    ),
+    setCounter: useCallback(
+      (platform, counterId, value) => dispatch({ type: 'SET_COUNTER', platform, counterId, value }),
+      []
+    ),
+    setNotes: useCallback(
+      (platform, notes) => dispatch({ type: 'SET_NOTES', platform, notes }),
+      []
+    ),
+    timelineAction: useCallback(
+      (id, action) => dispatch({ type: 'TIMELINE_ACTION', id, action }),
+      []
+    ),
+    addRevenue: useCallback(
+      (entry) => dispatch({ type: 'ADD_REVENUE', entry }),
+      []
+    ),
+    updateRevenue: useCallback(
+      (id, entry) => dispatch({ type: 'UPDATE_REVENUE', id, entry }),
+      []
+    ),
+    deleteRevenue: useCallback((id) => dispatch({ type: 'DELETE_REVENUE', id }), []),
+    updateSettings: useCallback(
+      (settings) => dispatch({ type: 'UPDATE_SETTINGS', settings }),
+      []
+    ),
+    resetDashboard: useCallback(() => {
+      clearState()
+      dispatch({ type: 'RESET' })
+    }, []),
+    importDashboard: useCallback((json: string) => {
+      const imported = importState(json)
+      dispatch({ type: 'IMPORT', state: imported })
+    }, []),
+    saveToday: useCallback(() => dispatch({ type: 'SAVE_DAY_TO_HISTORY' }), []),
+    startDay: useCallback(() => dispatch({ type: 'START_DAY' }), []),
+    finishDay: useCallback(() => dispatch({ type: 'FINISH_DAY' }), []),
+    resumeDay: useCallback(() => dispatch({ type: 'RESUME_DAY' }), []),
+    markNotificationRead: useCallback(
+      (id) => dispatch({ type: 'MARK_NOTIFICATION_READ', id }),
+      []
+    ),
+    markAllNotificationsRead: useCallback(
+      () => dispatch({ type: 'MARK_ALL_NOTIFICATIONS_READ' }),
+      []
+    ),
+    clearNotifications: useCallback(() => dispatch({ type: 'CLEAR_NOTIFICATIONS' }), []),
+    notifications: state.notifications,
+    unreadCount: state.notifications.filter((n) => !n.read).length,
+    todayStats,
+  }
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+}
+
+export function useApp() {
+  const ctx = useContext(AppContext)
+  if (!ctx) throw new Error('useApp must be used within AppProvider')
+  return ctx
+}
+
+// silence unused import warning
+void sumCounters
