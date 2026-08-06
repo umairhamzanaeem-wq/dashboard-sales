@@ -10,7 +10,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
+import { useAuth } from '@/context/AuthContext'
 import { useClock, AnimatedNumber } from '@/components/shared'
+import { UserAvatar } from '@/components/UserAvatar'
 import { MobileMenuButton } from './Sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +39,7 @@ interface NavbarProps {
 export function Navbar({ onMenuClick }: NavbarProps) {
   const now = useClock()
   const navigate = useNavigate()
+  const { username } = useAuth()
   const {
     overall,
     settings,
@@ -224,6 +227,8 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         >
           {settings.theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
+
+        <UserAvatar username={username} size="sm" className="hidden sm:block" />
       </header>
 
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>

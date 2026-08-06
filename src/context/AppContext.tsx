@@ -598,7 +598,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             },
           })
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('BD Dashboard', { body, icon: '/favicon.svg' })
+            new Notification('BD Dashboard', { body, icon: '/logo.png' })
           }
         }
       })

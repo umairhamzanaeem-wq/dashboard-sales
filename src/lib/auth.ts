@@ -3,6 +3,24 @@ export const USERS: Record<string, string> = {
   umair: 'umair',
 }
 
+/** Profile display names & avatar paths (files in /public/avatars) */
+export const USER_PROFILES: Record<
+  string,
+  { displayName: string; avatar?: string }
+> = {
+  saad: { displayName: 'Saad' },
+  umair: { displayName: 'Umair', avatar: '/avatars/umair.png' },
+}
+
+export function getUserProfile(username?: string | null) {
+  const user = username?.trim().toLowerCase() ?? ''
+  return (
+    USER_PROFILES[user] ?? {
+      displayName: user ? user.charAt(0).toUpperCase() + user.slice(1) : 'User',
+    }
+  )
+}
+
 export const AUTH_STORAGE_KEY = 'bd-auth-session'
 
 export interface AuthSession {

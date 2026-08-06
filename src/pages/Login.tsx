@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
+import { BrandLogo } from '@/components/BrandLogo'
 
 export function LoginPage() {
   const { isAuthenticated, login } = useAuth()
@@ -40,9 +41,7 @@ export function LoginPage() {
         className="relative w-full max-w-md rounded-2xl border border-border bg-card/90 backdrop-blur-xl p-8 shadow-2xl"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-primary shadow-lg shadow-accent/20 mb-4">
-            <Zap className="h-6 w-6 text-white" />
-          </div>
+          <BrandLogo size="lg" rounded="2xl" className="mb-4 shadow-lg shadow-red-900/30" />
           <h1 className="text-2xl font-semibold tracking-tight">BD Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
         </div>

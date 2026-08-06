@@ -10,13 +10,15 @@ import {
   Settings,
   Menu,
   X,
-  Zap,
   LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
 import { ProgressRing } from '@/components/shared'
+import { UserAvatar } from '@/components/UserAvatar'
+import { BrandLogo } from '@/components/BrandLogo'
+import { getUserProfile } from '@/lib/auth'
 import { useNavigate } from 'react-router-dom'
 
 const NAV = [
@@ -40,6 +42,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { username, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const profile = getUserProfile(username)
 
   const handleLogout = () => {
     logout()
@@ -49,14 +52,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const content = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-primary shadow-lg shadow-accent/20">
-          <Zap className="h-5 w-5 text-white" />
-        </div>
+        <BrandLogo size="md" rounded="xl" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">BD Dashboard</p>
-          <p className="text-[11px] text-muted-foreground truncate capitalize">
-            {username ?? 'Business Development'}
-          </p>
+          <p className="text-[11px] text-muted-foreground truncate">Business Development</p>
         </div>
         <button
           onClick={onClose}
@@ -103,6 +102,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <p className="text-[11px] text-muted-foreground truncate">
               🔥 {settings.streak} day streak
             </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 px-1 pb-1">
+          <UserAvatar username={username} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium truncate">{profile.displayName}</p>
+            <p className="text-[10px] text-muted-foreground truncate capitalize">@{username}</p>
           </div>
         </div>
         <button
