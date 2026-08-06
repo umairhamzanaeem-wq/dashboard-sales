@@ -47,8 +47,6 @@ export function Navbar({ onMenuClick }: NavbarProps) {
     markAllNotificationsRead,
     clearNotifications,
     state,
-    syncStatus,
-    syncMessage,
   } = useApp()
 
   const [searchOpen, setSearchOpen] = useState(false)
@@ -157,15 +155,6 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         </div>
 
         <div className="flex-1" />
-
-        {syncStatus === 'offline' && syncMessage && (
-          <span className="hidden lg:inline text-[11px] text-warning max-w-[220px] truncate" title={syncMessage}>
-            Cloud offline
-          </span>
-        )}
-        {syncStatus === 'synced' && (
-          <span className="hidden md:inline text-[11px] text-accent">Synced</span>
-        )}
 
         <div className="hidden md:flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 border border-border">
           <span className="text-xs text-muted-foreground">Progress</span>

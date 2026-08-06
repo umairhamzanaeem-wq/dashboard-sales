@@ -36,7 +36,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { overall, settings, syncStatus } = useApp()
+  const { overall, settings } = useApp()
   const { username, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -102,13 +102,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <p className="text-xs font-medium">Today's Progress</p>
             <p className="text-[11px] text-muted-foreground truncate">
               🔥 {settings.streak} day streak
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {syncStatus === 'synced' && '☁ Synced'}
-              {syncStatus === 'syncing' && '☁ Syncing…'}
-              {syncStatus === 'offline' && '☁ Device only'}
-              {syncStatus === 'error' && '☁ Sync error'}
-              {syncStatus === 'idle' && '☁ …'}
             </p>
           </div>
         </div>

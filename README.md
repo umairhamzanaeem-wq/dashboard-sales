@@ -9,13 +9,13 @@ Premium Business Development Dashboard for tracking daily outreach across Fiverr
 | `saad`   | `saad`   |
 | `umair`  | `umair`  |
 
-Both users share the **same** dashboard data (history, revenue, daily progress) so the team stays consistent.
+Each user has their **own** Local Storage JSON on that device (`bd-dashboard-v1:saad` / `bd-dashboard-v1:umair`).
 
 ## Stack
 
 - React + TypeScript + Vite
 - Tailwind CSS · Framer Motion · Recharts · Lucide
-- Cloud sync via Vercel serverless API + Upstash Redis
+- Data: browser **Local Storage** (JSON) — no cloud/backend
 
 ## Run locally
 
@@ -27,23 +27,20 @@ npm install
 npm run dev
 ```
 
-Local mode uses browser storage. Cross-device sync needs Redis (see below).
-
-## Deploy on Vercel + multi-device sync
-
-1. Deploy the GitHub repo to Vercel (Framework: Vite, Output: `dist`, Node 20).
-2. In Vercel project → **Storage** → create **Upstash Redis** → **Connect** to this project.
-3. **Redeploy** so env vars (`KV_REST_API_*` or `UPSTASH_REDIS_REST_*`) are available.
-4. Open the site → log in → data syncs across phones/laptops.
-
-Without Redis, login still works but data stays on each device only.
-
 ## Daily use
 
-1. **Login**
-2. **Start Day**
-3. Work in **Daily Planner** / **Tracker**
-4. **Finish Day** → saved to **History** (and cloud if Redis is connected)
+1. Login  
+2. **Start Day**  
+3. Work in Planner / Tracker  
+4. **Finish Day** → saved to **History** in Local Storage  
+
+## Move data between devices
+
+Use **Settings → Export JSON** on one device, then **Import JSON** on another.
+
+## Deploy
+
+Vercel: Framework Vite, Output `dist`, Node 20. No Redis/KV needed.
 
 ## Build
 

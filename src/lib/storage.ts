@@ -1,5 +1,10 @@
 import type { AppState, DailyProgress } from '@/types'
-import { STORAGE_KEY, createDefaultState } from './defaults'
+import { createDefaultState } from './defaults'
+
+export function storageKeyForUser(username?: string | null): string {
+  const user = username?.trim().toLowerCase()
+  return user ? `bd-dashboard-v1:${user}` : 'bd-dashboard-v1'
+}
 
 function normalizeProgress(progress: DailyProgress): DailyProgress {
   return {
@@ -17,14 +22,22 @@ export function normalizeState(parsed: AppState): AppState {
     history: parsed.history ?? [],
     revenue: parsed.revenue ?? [],
     notifications: parsed.notifications ?? [],
-    updatedAt: parsed.updatedAt ?? 0,
+    updatedAt: parsed.updatedAt ?? Date.now(),
     version: 1,
   }
 }
 
-export function loadState(): AppState {
+export function loadState(username?: string | null): AppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = storageKeyForUser(username)
+    let raw = localStorage.getItem(key)
+
+    // Migrate older shared key once for this user
+    if (!raw && username) {
+      const legacy = localStorage.getItem('bd-dashboard-v1')
+      if (legacy) raw = legacy
+    }
+
     if (!raw) return createDefaultState()
     const parsed = JSON.parse(raw) as AppState
     if (!parsed.version || !parsed.settings || !parsed.dailyProgress) {
@@ -36,16 +49,17 @@ export function loadState(): AppState {
   }
 }
 
-export function saveState(state: AppState): void {
+export function saveState(state: AppState, username?: string | null): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    const stamped = { ...state, updatedAt: Date.now() }
+    localStorage.setItem(storageKeyForUser(username), JSON.stringify(stamped))
   } catch (e) {
     console.error('Failed to save state', e)
   }
 }
 
-export function clearState(): void {
-  localStorage.removeItem(STORAGE_KEY)
+export function clearState(username?: string | null): void {
+  localStorage.removeItem(storageKeyForUser(username))
 }
 
 export function exportState(state: AppState): string {
@@ -63,64 +77,4 @@ export function importState(json: string): AppState {
     ...parsed,
     updatedAt: Date.now(),
   })
-}
-
-export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
-
-export async function fetchRemoteState(token: string): Promise<{
-  state: AppState | null
-  status: SyncStatus
-  message?: string
-}> {
-  try {
-    const res = await fetch('/api/state', {
-      headers: { Authorization: `Basic ${token}` },
-    })
-    if (res.status === 503) {
-      const body = await res.json().catch(() => ({}))
-      return { state: null, status: 'offline', message: body.hint || body.error }
-    }
-    if (res.status === 401) {
-      return { state: null, status: 'error', message: 'Unauthorized' }
-    }
-    if (!res.ok) {
-      return { state: null, status: 'error', message: 'Failed to load cloud data' }
-    }
-    const data = await res.json()
-    if (!data) return { state: null, status: 'synced' }
-    return { state: normalizeState(data as AppState), status: 'synced' }
-  } catch {
-    return { state: null, status: 'offline', message: 'Network error — using this device only' }
-  }
-}
-
-export async function pushRemoteState(token: string, state: AppState): Promise<SyncStatus> {
-  try {
-    const res = await fetch('/api/state', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Basic ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(state),
-    })
-    if (res.status === 503) return 'offline'
-    if (!res.ok) return 'error'
-    return 'synced'
-  } catch {
-    return 'offline'
-  }
-}
-
-/** Prefer the newer state by updatedAt; if equal, prefer remote history length. */
-export function mergeStates(local: AppState, remote: AppState): AppState {
-  const localTs = local.updatedAt ?? 0
-  const remoteTs = remote.updatedAt ?? 0
-  if (remoteTs > localTs) return normalizeState(remote)
-  if (localTs > remoteTs) return normalizeState(local)
-  // Same timestamp — keep whichever has more history
-  if ((remote.history?.length ?? 0) > (local.history?.length ?? 0)) {
-    return normalizeState(remote)
-  }
-  return normalizeState(local)
 }
