@@ -6,6 +6,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from 'react'
 import confetti from 'canvas-confetti'
@@ -20,7 +21,8 @@ import type {
   TimelineStatus,
 } from '@/types'
 import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
-import { loadState, saveState, clearState, importState } from '@/lib/storage'
+import { loadState, saveState, clearState, importState, fetchRemoteState, pushRemoteState, mergeStates, type SyncStatus } from '@/lib/storage'
+import { useAuth } from '@/context/AuthContext'
 import {
   generateId,
   overallProgress,
@@ -433,6 +435,19 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+function rootReducer(state: AppState, action: Action): AppState {
+  if (action.type === 'HYDRATE' || action.type === 'IMPORT') {
+    return action.state
+  }
+  const next = reducer(state, action)
+  if (next === state) return state
+  if (action.type === 'TIMELINE_ACTION' && action.action === 'tick') {
+    // Don't bump updatedAt every second — keeps sync quieter; local save still happens
+    return next
+  }
+  return { ...next, updatedAt: Date.now() }
+}
+
 function buildHistoryEntry(progress: DailyProgress, state: AppState): HistoryEntry {
   const ov = overallProgress(progress)
   const dayRevenue = state.revenue
@@ -491,6 +506,8 @@ interface AppContextValue {
   clearNotifications: () => void
   notifications: AppNotification[]
   unreadCount: number
+  syncStatus: SyncStatus
+  syncMessage: string | null
   todayStats: {
     connections: number
     followUps: number
@@ -506,19 +523,75 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState)
+  const { session } = useAuth()
+  const [state, dispatch] = useReducer(rootReducer, undefined, loadState)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const hydrated = useRef(false)
+  const cloudReady = useRef(false)
   const notifiedSlots = useRef<Set<string>>(new Set())
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Initial local day rollover + cloud hydrate
   useEffect(() => {
     dispatch({ type: 'ENSURE_TODAY' })
     hydrated.current = true
-  }, [])
 
+    let cancelled = false
+    async function hydrateFromCloud() {
+      if (!session?.token) {
+        cloudReady.current = true
+        return
+      }
+      setSyncStatus('syncing')
+      const result = await fetchRemoteState(session.token)
+      if (cancelled) return
+      setSyncMessage(result.message ?? null)
+      if (result.state) {
+        const local = loadState()
+        const merged = mergeStates(local, result.state)
+        dispatch({ type: 'HYDRATE', state: merged })
+        dispatch({ type: 'ENSURE_TODAY' })
+        setSyncStatus('synced')
+      } else {
+        setSyncStatus(result.status)
+        // Push local up if cloud is empty but configured
+        if (result.status === 'synced' && session.token) {
+          const local = loadState()
+          const status = await pushRemoteState(session.token, { ...local, updatedAt: Date.now() })
+          if (!cancelled) setSyncStatus(status)
+        }
+      }
+      cloudReady.current = true
+    }
+    hydrateFromCloud()
+    return () => {
+      cancelled = true
+    }
+  }, [session?.token])
+
+  // Persist locally + debounced cloud sync
   useEffect(() => {
     if (!hydrated.current) return
     saveState(state)
-  }, [state])
+
+    if (!cloudReady.current || !session?.token) return
+    if (pushTimer.current) clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(async () => {
+      setSyncStatus('syncing')
+      const status = await pushRemoteState(session.token, state)
+      setSyncStatus(status)
+      if (status === 'offline') {
+        setSyncMessage('Cloud sync offline — saved on this device. Connect Upstash Redis in Vercel for multi-device.')
+      } else if (status === 'synced') {
+        setSyncMessage(null)
+      }
+    }, 800)
+
+    return () => {
+      if (pushTimer.current) clearTimeout(pushTimer.current)
+    }
+  }, [state, session?.token])
 
   // Theme
   useEffect(() => {
@@ -708,6 +781,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     clearNotifications: useCallback(() => dispatch({ type: 'CLEAR_NOTIFICATIONS' }), []),
     notifications: state.notifications,
     unreadCount: state.notifications.filter((n) => !n.read).length,
+    syncStatus,
+    syncMessage,
     todayStats,
   }
 

@@ -1,34 +1,49 @@
 # BD Dashboard
 
-Premium frontend-only Business Development Dashboard for tracking daily outreach across Fiverr, LinkedIn, Facebook, and Upwork.
+Premium Business Development Dashboard for tracking daily outreach across Fiverr, LinkedIn, Facebook, and Upwork.
+
+## Logins
+
+| Username | Password |
+|----------|----------|
+| `saad`   | `saad`   |
+| `umair`  | `umair`  |
+
+Both users share the **same** dashboard data (history, revenue, daily progress) so the team stays consistent.
 
 ## Stack
 
 - React + TypeScript + Vite
-- Tailwind CSS v4
-- Framer Motion · Recharts · Lucide · React Hook Form · React Router
+- Tailwind CSS · Framer Motion · Recharts · Lucide
+- Cloud sync via Vercel serverless API + Upstash Redis
 
-## Features
-
-- Daily planner with platform workflows & live timeline timers
-- KPI tracker with targets, counters, and completion badges
-- End-of-day scorecard with confetti at 100%
-- Revenue tracking with charts
-- Analytics, history (calendar / timeline / table), settings
-- Browser notifications on schedule
-- Full LocalStorage persistence + JSON export/import
-
-## Run
+## Run locally
 
 Requires **Node 20+**.
 
 ```bash
-nvm use   # if you use nvm (.nvmrc included)
+nvm use
 npm install
 npm run dev
 ```
 
-Open the URL shown in the terminal (usually `http://localhost:5173`).
+Local mode uses browser storage. Cross-device sync needs Redis (see below).
+
+## Deploy on Vercel + multi-device sync
+
+1. Deploy the GitHub repo to Vercel (Framework: Vite, Output: `dist`, Node 20).
+2. In Vercel project → **Storage** → create **Upstash Redis** → **Connect** to this project.
+3. **Redeploy** so env vars (`KV_REST_API_*` or `UPSTASH_REDIS_REST_*`) are available.
+4. Open the site → log in → data syncs across phones/laptops.
+
+Without Redis, login still works but data stays on each device only.
+
+## Daily use
+
+1. **Login**
+2. **Start Day**
+3. Work in **Daily Planner** / **Tracker**
+4. **Finish Day** → saved to **History** (and cloud if Redis is connected)
 
 ## Build
 
@@ -36,7 +51,3 @@ Open the URL shown in the terminal (usually `http://localhost:5173`).
 npm run build
 npm run preview
 ```
-
-## Data
-
-Everything is stored in `localStorage` under `bd-dashboard-v1`. Use **Settings → Export JSON** to back up.

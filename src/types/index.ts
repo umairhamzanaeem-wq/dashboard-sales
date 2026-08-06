@@ -152,6 +152,8 @@ export interface AppState {
   revenue: RevenueEntry[]
   notifications: AppNotification[]
   version: number
+  /** Epoch ms — used for cross-device sync conflict resolution */
+  updatedAt?: number
 }
 
 export interface SearchResult {

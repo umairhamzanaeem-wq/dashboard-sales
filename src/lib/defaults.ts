@@ -206,5 +206,6 @@ export function createDefaultState(): AppState {
     revenue: [],
     notifications: [],
     version: 1,
+    updatedAt: Date.now(),
   }
 }

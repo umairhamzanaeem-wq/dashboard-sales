@@ -11,10 +11,13 @@ import {
   Menu,
   X,
   Zap,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
+import { useAuth } from '@/context/AuthContext'
 import { ProgressRing } from '@/components/shared'
+import { useNavigate } from 'react-router-dom'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,8 +36,15 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { overall, settings } = useApp()
+  const { overall, settings, syncStatus } = useApp()
+  const { username, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   const content = (
     <div className="flex h-full flex-col">
@@ -44,7 +54,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">BD Dashboard</p>
-          <p className="text-[11px] text-muted-foreground truncate">Business Development</p>
+          <p className="text-[11px] text-muted-foreground truncate capitalize">
+            {username ?? 'Business Development'}
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -81,7 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         })}
       </nav>
 
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border p-4 space-y-3">
         <div className="rounded-xl bg-muted/50 border border-border p-4 flex items-center gap-3">
           <ProgressRing percent={overall.percent} size={48} strokeWidth={4}>
             <span className="text-[10px] font-semibold">{overall.percent}%</span>
@@ -91,8 +103,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <p className="text-[11px] text-muted-foreground truncate">
               🔥 {settings.streak} day streak
             </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {syncStatus === 'synced' && '☁ Synced'}
+              {syncStatus === 'syncing' && '☁ Syncing…'}
+              {syncStatus === 'offline' && '☁ Device only'}
+              {syncStatus === 'error' && '☁ Sync error'}
+              {syncStatus === 'idle' && '☁ …'}
+            </p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+        >
+          <LogOut className="h-4 w-4" /> Log out
+        </button>
       </div>
     </div>
   )
