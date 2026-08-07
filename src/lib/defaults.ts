@@ -102,6 +102,7 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
         'Comment on Posts',
         'Send Personalized DMs',
         "Publish Today's Post",
+        'Find & friend request leads (med spa, dental, etc.)',
       ]),
       counters: [
         { id: 'comments', label: 'Meaningful Comments', target: targets.facebook.comments, completed: 0 },

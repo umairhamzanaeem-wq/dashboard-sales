@@ -6,9 +6,34 @@ export function storageKeyForUser(username?: string | null): string {
   return user ? `bd-dashboard-v1:${user}` : 'bd-dashboard-v1'
 }
 
+const FACEBOOK_FRIEND_REQUEST_TASK = {
+  id: 'c-friend-requests',
+  label: 'Find & friend request leads (med spa, dental, etc.)',
+  completed: false,
+}
+
 function normalizeProgress(progress: DailyProgress): DailyProgress {
+  const platforms = { ...progress.platforms }
+
+  // Append new Facebook task if missing — never wipe existing checklist data
+  if (platforms.facebook) {
+    const list = platforms.facebook.checklist ?? []
+    const exists = list.some(
+      (item) =>
+        item.id === FACEBOOK_FRIEND_REQUEST_TASK.id ||
+        item.label.toLowerCase().includes('friend request')
+    )
+    if (!exists) {
+      platforms.facebook = {
+        ...platforms.facebook,
+        checklist: [...list, { ...FACEBOOK_FRIEND_REQUEST_TASK }],
+      }
+    }
+  }
+
   return {
     ...progress,
+    platforms,
     dayStatus: progress.dayStatus ?? 'not_started',
     dayStartedAt: progress.dayStartedAt ?? null,
     dayFinishedAt: progress.dayFinishedAt ?? null,
