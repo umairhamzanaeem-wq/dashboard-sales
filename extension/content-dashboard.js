@@ -1,6 +1,5 @@
 /**
  * Bridges BD Dashboard page localStorage ↔ chrome.storage.local
- * so the extension popup and open dashboard stay in sync.
  */
 ;(() => {
   const STATE_PREFIX = 'bd-dashboard-v1'
@@ -25,26 +24,51 @@
     const key = stateKey(username)
     let raw = localStorage.getItem(key)
     if (!raw && username) raw = localStorage.getItem(STATE_PREFIX)
-    if (!raw) return null
+    // Try both users if username missing
+    if (!raw) {
+      for (const u of ['umair', 'saad']) {
+        raw = localStorage.getItem(stateKey(u))
+        if (raw) {
+          try {
+            return { key: stateKey(u), username: u, state: JSON.parse(raw) }
+          } catch {
+            /* continue */
+          }
+        }
+      }
+      return null
+    }
     try {
-      return { key, state: JSON.parse(raw) }
+      return { key, username: username ?? null, state: JSON.parse(raw) }
     } catch {
       return null
     }
   }
 
-  function pushPageToExtension() {
-    if (applyingFromExt) return
+  function snapshot() {
     const auth = readAuth()
     const username = auth?.username ?? null
     const packed = readPageState(username)
-    if (!packed?.state) return
+    return {
+      auth,
+      username: packed?.username ?? username,
+      state: packed?.state ?? null,
+    }
+  }
+
+  function pushPageToExtension() {
+    if (applyingFromExt) return
+    const snap = snapshot()
+    if (!snap.state) return
     chrome.runtime.sendMessage({
       type: 'SET_STATE',
-      username,
-      state: packed.state,
+      username: snap.username,
+      state: snap.state,
       writer: 'dashboard',
     })
+    if (snap.auth) {
+      chrome.runtime.sendMessage({ type: 'SET_AUTH', session: snap.auth })
+    }
   }
 
   function applyExtensionState(username, state) {
@@ -60,14 +84,30 @@
     } finally {
       setTimeout(() => {
         applyingFromExt = false
-      }, 300)
+      }, 400)
     }
   }
 
-  // Initial: page → extension
-  setTimeout(pushPageToExtension, 800)
+  // Respond to popup pull requests
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'PULL_STATE') {
+      const snap = snapshot()
+      sendResponse({ ok: true, ...snap })
+      // Also push to storage
+      if (snap.state) {
+        pushPageToExtension()
+      }
+      return true
+    }
+    return false
+  })
 
-  // Dashboard saved
+  // Push ASAP and again after app hydrates
+  pushPageToExtension()
+  setTimeout(pushPageToExtension, 500)
+  setTimeout(pushPageToExtension, 1500)
+  setTimeout(pushPageToExtension, 3000)
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return
     const data = event.data
@@ -94,7 +134,6 @@
     })
   })
 
-  // Extension popup changed chrome.storage → push into open dashboard
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return
     const meta = changes[META_KEY]?.newValue
@@ -104,10 +143,21 @@
     const username = auth?.username ?? changes[AUTH_KEY]?.newValue?.username ?? null
     const key = stateKey(username)
     if (!changes[key]?.newValue) return
-    applyExtensionState(username, changes[key].newValue)
+
+    const incoming = changes[key].newValue
+    const local = readPageState(username)?.state
+    // Never let empty/not_started extension state wipe an active dashboard day
+    if (
+      local &&
+      (local.dailyProgress?.dayStatus === 'in_progress' || (local.updatedAt ?? 0) > 0) &&
+      (incoming.dailyProgress?.dayStatus === 'not_started' || (incoming.updatedAt ?? 0) < (local.updatedAt ?? 0))
+    ) {
+      pushPageToExtension()
+      return
+    }
+    applyExtensionState(username, incoming)
   })
 
-  // Also poll occasionally in case storage events were missed
   setInterval(() => {
     chrome.storage.local.get([META_KEY, AUTH_KEY, stateKey(readAuth()?.username)].filter(Boolean), (result) => {
       if (result[META_KEY]?.lastWriter !== 'extension') return
@@ -120,5 +170,5 @@
         applyExtensionState(username, remote)
       }
     })
-  }, 2500)
+  }, 2000)
 })()

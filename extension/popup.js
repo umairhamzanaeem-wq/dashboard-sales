@@ -326,24 +326,201 @@ function renderAll() {
   renderStepBody()
 }
 
+function stateScore(s) {
+  if (!s?.dailyProgress) return -1
+  let score = 0
+  const status = s.dailyProgress.dayStatus
+  if (status === 'in_progress') score += 10000
+  if (status === 'finished') score += 5000
+  score += overallPct(s) * 10
+  score += s.updatedAt ? Math.min(s.updatedAt / 1e10, 1000) : 0
+  try {
+    score += JSON.stringify(s.dailyProgress.platforms).length / 100
+  } catch {
+    /* ignore */
+  }
+  return score
+}
+
+function preferState(a, b) {
+  if (!a) return b
+  if (!b) return a
+  return stateScore(b) > stateScore(a) ? b : a
+}
+
+function patchFacebookTask(s) {
+  const fb = s?.dailyProgress?.platforms?.facebook
+  if (fb && !fb.checklist.some((i) => i.id === 'c-friend-requests' || i.label.includes('friend request'))) {
+    fb.checklist.push({
+      id: 'c-friend-requests',
+      label: 'Find & friend request leads (med spa, dental, etc.)',
+      completed: false,
+    })
+  }
+  return s
+}
+
+function setSyncStatus(msg) {
+  const el = $('sync-status')
+  if (el) el.textContent = msg || ''
+}
+
+async function queryDashboardTabs() {
+  const patterns = [
+    'https://dashboard-sales-sand.vercel.app/*',
+    'https://*.vercel.app/*',
+    'http://localhost:5173/*',
+    'http://127.0.0.1:5173/*',
+  ]
+  const tabs = []
+  for (const url of patterns) {
+    try {
+      const found = await chrome.tabs.query({ url })
+      tabs.push(...found)
+    } catch {
+      /* ignore invalid pattern on some browsers */
+    }
+  }
+  // Deduplicate
+  const map = new Map()
+  tabs.forEach((t) => map.set(t.id, t))
+  return [...map.values()].filter((t) => t.id && t.url && !t.url.startsWith('chrome'))
+}
+
+async function pullFromTab(tabId) {
+  // Try content script first
+  try {
+    const res = await chrome.tabs.sendMessage(tabId, { type: 'PULL_STATE' })
+    if (res?.ok && res.state) return res
+  } catch {
+    /* content script may not be injected yet */
+  }
+
+  // Fallback: inject a reader
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const AUTH_KEY = 'bd-auth-session'
+        const PREFIX = 'bd-dashboard-v1'
+        let auth = null
+        try {
+          auth = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null')
+        } catch {
+          auth = null
+        }
+        const user = auth?.username || null
+        const keys = user
+          ? [`${PREFIX}:${user}`, PREFIX]
+          : [`${PREFIX}:umair`, `${PREFIX}:saad`, PREFIX]
+        for (const key of keys) {
+          const raw = localStorage.getItem(key)
+          if (!raw) continue
+          try {
+            const state = JSON.parse(raw)
+            if (state?.dailyProgress) {
+              const uname = key.includes(':') ? key.split(':')[1] : user
+              return { ok: true, auth, username: uname || user, state }
+            }
+          } catch {
+            /* continue */
+          }
+        }
+        return { ok: false, auth, username: user, state: null }
+      },
+    })
+    return result || { ok: false }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+async function syncFromDashboard(preferredUser) {
+  setSyncStatus('Syncing from dashboard…')
+  const tabs = await queryDashboardTabs()
+  if (!tabs.length) {
+    setSyncStatus('Open the dashboard tab, then click Sync Dashboard.')
+    return null
+  }
+
+  let best = null
+  let bestUser = preferredUser || username
+  for (const tab of tabs) {
+    const res = await pullFromTab(tab.id)
+    if (!res?.state) continue
+    const user = res.username || preferredUser || username
+    if (preferredUser && user && user !== preferredUser) {
+      // Still allow if preferred not set on page yet
+    }
+    best = preferState(best, res.state)
+    if (res.username) bestUser = res.username
+    if (res.auth?.username) bestUser = res.auth.username
+  }
+
+  if (!best) {
+    setSyncStatus('No dashboard data found — refresh the dashboard page, then Sync again.')
+    return null
+  }
+
+  username = bestUser || username || 'umair'
+  state = patchFacebookTask(ensureToday(best))
+  await persist('dashboard') // mark as from dashboard so we don't wipe page
+  // Re-tag writer properly for storage listeners
+  await chrome.storage.local.set({
+    [stateKey(username)]: state,
+    [AUTH_KEY]: { username, token: btoa(`${username}:${username}`) },
+    [META_KEY]: { lastWriter: 'dashboard', updatedAt: Date.now() },
+  })
+  setSyncStatus(`Synced · ${state.dailyProgress.dayStatus.replace('_', ' ')} · ${overallPct(state)}%`)
+  return state
+}
+
+async function bootWithUser(user) {
+  username = user
+  const all = await loadBundle()
+  let local = all[stateKey(username)] || null
+
+  // Always try to pull live dashboard data first
+  const pulled = await syncFromDashboard(username)
+  if (pulled) {
+    showMain()
+    return
+  }
+
+  // Fall back to chrome.storage, never invent empty over existing
+  if (local) {
+    state = patchFacebookTask(ensureToday(local))
+    showMain()
+    setSyncStatus('Loaded saved extension data. Open dashboard + Sync for latest.')
+    return
+  }
+
+  state = createDefaultState()
+  showMain()
+  setSyncStatus('No data yet — open dashboard, log in, then click Sync Dashboard.')
+}
+
 async function init() {
   const all = await loadBundle()
   const auth = all[AUTH_KEY]
   if (auth?.username && USERS[auth.username]) {
-    username = auth.username
-    state = ensureToday(all[stateKey(username)] || createDefaultState())
-    const fb = state.dailyProgress.platforms.facebook
-    if (fb && !fb.checklist.some((i) => i.id === 'c-friend-requests' || i.label.includes('friend request'))) {
-      fb.checklist.push({
-        id: 'c-friend-requests',
-        label: 'Find & friend request leads (med spa, dental, etc.)',
-        completed: false,
-      })
-    }
-    await persist('extension')
-    showMain()
+    await bootWithUser(auth.username)
   } else {
+    // Try pull auth from open dashboard
+    const tabs = await queryDashboardTabs()
+    for (const tab of tabs) {
+      const res = await pullFromTab(tab.id)
+      if (res?.auth?.username && USERS[res.auth.username]) {
+        await bootWithUser(res.auth.username)
+        return
+      }
+      if (res?.username && USERS[res.username]) {
+        await bootWithUser(res.username)
+        return
+      }
+    }
     showLogin()
+    setSyncStatus('Log in, keep dashboard open, then Sync.')
   }
 }
 
@@ -357,11 +534,7 @@ $('btn-login').addEventListener('click', async () => {
     return
   }
   err.classList.add('hidden')
-  username = u
-  const all = await loadBundle()
-  state = ensureToday(all[stateKey(username)] || createDefaultState())
-  await persist('extension')
-  showMain()
+  await bootWithUser(u)
 })
 
 $('btn-logout').addEventListener('click', async () => {
@@ -369,6 +542,11 @@ $('btn-logout').addEventListener('click', async () => {
   username = null
   state = null
   showLogin()
+})
+
+$('btn-sync').addEventListener('click', async () => {
+  const s = await syncFromDashboard(username)
+  if (s) renderAll()
 })
 
 $('btn-start-day').addEventListener('click', async () => {
@@ -440,8 +618,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes[META_KEY]?.newValue?.lastWriter === 'extension') return
   const key = stateKey(username)
   if (changes[key]?.newValue) {
-    state = ensureToday(changes[key].newValue)
-    renderAll()
+    const incoming = changes[key].newValue
+    if (stateScore(incoming) >= stateScore(state)) {
+      state = ensureToday(incoming)
+      renderAll()
+      setSyncStatus(`Updated from dashboard · ${overallPct(state)}%`)
+    }
   }
 })
 

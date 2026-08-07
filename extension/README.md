@@ -10,14 +10,15 @@ Step-by-step daily tracker popup that syncs with your BD Dashboard while you wor
 4. Select this folder: `extension` (inside the project)
 5. Pin **BD Dashboard Tracker** to the toolbar
 
-## First-time sync
+## Fix sync (important)
 
-1. Open your dashboard: https://dashboard-sales-sand.vercel.app  
-2. Log in (saad/saad or umair/umair)  
-3. Keep that tab open once (content script copies Local Storage → extension)  
-4. Click the extension icon → log in with the **same** user  
+1. Go to `chrome://extensions`
+2. Find **BD Dashboard Tracker** → click **Reload**
+3. Open https://dashboard-sales-sand.vercel.app and **refresh** that tab (logged in)
+4. Open the extension → click **Sync Dashboard**
 
-After that, updates from the popup write into the open dashboard live.
+You should see your started day and current progress.
+
 
 ## Daily use
 

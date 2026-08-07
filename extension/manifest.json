@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "BD Dashboard Tracker",
   "description": "Step-by-step daily BD tasks that sync live with your BD Dashboard.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "action": {
     "default_popup": "popup.html",
     "default_title": "BD Tracker",
@@ -20,7 +20,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "https://dashboard-sales-sand.vercel.app/*",
     "https://*.vercel.app/*",
@@ -36,7 +36,7 @@
         "http://127.0.0.1:5173/*"
       ],
       "js": ["content-dashboard.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ]
 }
