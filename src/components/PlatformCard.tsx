@@ -23,68 +23,69 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
+      transition={{ duration: 0.35, delay }}
+      className="h-full"
     >
-      <Card className="overflow-hidden hover:border-border/80 transition-colors">
-        <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
-        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+      <Card className="overflow-hidden hover:border-border/80 transition-colors h-full flex flex-col">
+        <div className="h-1 w-full shrink-0" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+        <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold text-foreground">{section.name}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{section.name}</h3>
               <CompletedBadge show={section.completed || stats.percent >= 100} />
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" />
               {formatMinutes(section.estimatedMinutes)}
             </div>
             {section.purpose && (
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{section.purpose}</p>
+              <p className="mt-1.5 text-[11px] text-muted-foreground leading-snug line-clamp-2">{section.purpose}</p>
             )}
           </div>
-          <ProgressRing percent={stats.percent} size={56} strokeWidth={5} color={color}>
-            <span className="text-[11px] font-semibold tabular-nums">{stats.percent}%</span>
+          <ProgressRing percent={stats.percent} size={44} strokeWidth={4} color={color}>
+            <span className="text-[10px] font-semibold tabular-nums">{stats.percent}%</span>
           </ProgressRing>
         </CardHeader>
 
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-3 p-4 pt-2 flex-1 flex flex-col">
           {section.counters.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Daily Targets</p>
+            <div className="space-y-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Daily Targets</p>
               {section.counters.map((counter) => {
                 const pct = percent(counter.completed, counter.target)
                 const done = counter.completed >= counter.target
                 return (
-                  <div key={counter.id} className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                  <div key={counter.id} className="rounded-lg border border-border bg-muted/40 px-2.5 py-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{counter.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {counter.completed} / {counter.target} · {Math.max(0, counter.target - counter.completed)} remaining
+                        <p className="text-xs font-medium truncate">{counter.label}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {counter.completed}/{counter.target} · {Math.max(0, counter.target - counter.completed)} left
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-6 w-6"
                           onClick={() => updateCounter(platform, counter.id, -1)}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{counter.completed}</span>
+                        <span className="w-7 text-center text-xs font-semibold tabular-nums">{counter.completed}</span>
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-6 w-6"
                           onClick={() => updateCounter(platform, counter.id, 1)}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
-                    <Progress value={pct} indicatorClassName={done ? 'bg-accent' : undefined} style={{ ['--tw' as string]: color }} />
+                    <Progress value={pct} className="h-1.5" indicatorClassName={done ? 'bg-accent' : undefined} />
                     {done && <CompletedBadge show />}
                   </div>
                 )
@@ -93,18 +94,18 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
           )}
 
           {section.checklist.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tasks</p>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Tasks</p>
               {section.checklist.map((item) => (
                 <label
                   key={item.id}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-muted/50 cursor-pointer transition-colors"
                 >
                   <Checkbox
                     checked={item.completed}
                     onCheckedChange={() => toggleChecklist(platform, item.id)}
                   />
-                  <span className={`text-sm ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
+                  <span className={`text-xs leading-snug ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
                     {item.label}
                   </span>
                 </label>
@@ -112,21 +113,21 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
             </div>
           )}
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
+          <div className="space-y-1 mt-auto pt-1">
+            <div className="flex items-center justify-between text-[10px]">
               <span className="text-muted-foreground">Overall Progress</span>
               <span className="font-medium tabular-nums">{stats.percent}%</span>
             </div>
-            <Progress value={stats.percent} />
+            <Progress value={stats.percent} className="h-1.5" />
           </div>
 
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Notes</p>
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground">Notes</p>
             <Textarea
-              placeholder="Add notes for this platform..."
+              placeholder="Add notes..."
               value={section.notes}
               onChange={(e) => setNotes(platform, e.target.value)}
-              className="min-h-[60px] text-sm"
+              className="min-h-[44px] text-xs py-1.5"
             />
           </div>
         </CardContent>

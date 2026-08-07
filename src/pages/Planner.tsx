@@ -14,12 +14,12 @@ export function PlannerPage() {
   const { overall, progress, dispatch } = useApp()
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <PageHeader
         title="Daily Planner"
         description="Execute your platform workflow — targets, tasks, and notes"
         actions={
-          <ProgressRing percent={overall.percent} size={52} strokeWidth={5}>
+          <ProgressRing percent={overall.percent} size={48} strokeWidth={5}>
             <span className="text-xs font-bold">{overall.percent}%</span>
           </ProgressRing>
         }
@@ -27,9 +27,10 @@ export function PlannerPage() {
 
       <DaySessionCard />
 
-      <div className="flex flex-col gap-5 max-w-3xl">
+      {/* Full-width ordered grid: left→right, top→bottom */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
         {PLATFORMS.map((p, i) => (
-          <PlatformCard key={p} platform={p} delay={i * 0.05} />
+          <PlatformCard key={p} platform={p} delay={i * 0.04} />
         ))}
       </div>
 
@@ -44,7 +45,7 @@ export function PlannerPage() {
             placeholder="End-of-day reflections, wins, blockers..."
             value={progress.dailyNotes}
             onChange={(e) => dispatch({ type: 'SET_DAILY_NOTES', notes: e.target.value })}
-            className="min-h-[100px]"
+            className="min-h-[80px]"
           />
         </CardContent>
       </Card>

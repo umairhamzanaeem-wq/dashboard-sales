@@ -22,7 +22,7 @@ export function AppLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onOpen={() => setSidebarOpen(true)} />
       <div className="lg:pl-60">
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-4 lg:p-6 max-w-[1400px] mx-auto">
+        <main className="p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
