@@ -140,7 +140,9 @@ export function RevenuePage() {
                 <XAxis dataKey="month" stroke="#71717a" fontSize={11} />
                 <YAxis stroke="#71717a" fontSize={11} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
-                  contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8 }}
+                  contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, color: '#fafafa' }}
+                  itemStyle={{ color: '#fafafa' }}
+                  labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
                 <Area type="monotone" dataKey="amount" stroke="#22c55e" fill="url(#revGrad)" strokeWidth={2} />
@@ -165,7 +167,9 @@ export function RevenuePage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8 }}
+                    contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, color: '#fafafa' }}
+                  itemStyle={{ color: '#fafafa' }}
+                  labelStyle={{ color: '#fafafa' }}
                     formatter={(v: number) => formatCurrency(v)}
                   />
                 </PieChart>
@@ -187,7 +191,9 @@ export function RevenuePage() {
                 <XAxis dataKey="month" stroke="#71717a" fontSize={11} />
                 <YAxis stroke="#71717a" fontSize={11} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
-                  contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8 }}
+                  contentStyle={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, color: '#fafafa' }}
+                  itemStyle={{ color: '#fafafa' }}
+                  labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
                 <Bar dataKey="amount" fill="#3b82f6" radius={[6, 6, 0, 0]} />

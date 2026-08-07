@@ -22,7 +22,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Flame, Target, TrendingUp, Activity } from 'lucide-react'
 import { platformColor } from '@/lib/utils'
 
-const tipStyle = { background: '#111113', border: '1px solid #27272a', borderRadius: 8 }
+const tipStyle = {
+  background: '#111113',
+  border: '1px solid #27272a',
+  borderRadius: 8,
+  color: '#fafafa',
+}
+const tipItemStyle = { color: '#fafafa' }
+const tipLabelStyle = { color: '#fafafa' }
 
 export function AnalyticsPage() {
   const { state, settings, overall, todayStats } = useApp()
@@ -115,7 +122,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Area type="monotone" dataKey="completion" stroke="#22c55e" fill="url(#compGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -127,7 +134,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
             </LineChart>
           </ResponsiveContainer>
@@ -139,7 +146,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Bar dataKey="connections" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -151,7 +158,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Bar dataKey="followUps" fill="#06b6d4" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -163,7 +170,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Area type="monotone" dataKey="facebook" stroke="#a855f7" fill="#a855f733" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -175,7 +182,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Bar dataKey="proposals" fill="#14b8a6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -187,7 +194,7 @@ export function AnalyticsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="day" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
-              <Tooltip contentStyle={tipStyle} />
+              <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               <Bar dataKey="avg" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -204,7 +211,7 @@ export function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                 <XAxis dataKey="month" stroke="#71717a" fontSize={10} />
                 <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
-                <Tooltip contentStyle={tipStyle} />
+                <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
                 <Line type="monotone" dataKey="avg" stroke="#ec4899" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
@@ -222,7 +229,7 @@ export function AnalyticsPage() {
                     <Cell key={e.name} fill={platformColor(e.name)} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={tipStyle} />
+                <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
               </PieChart>
             </ResponsiveContainer>
           )}
