@@ -27,7 +27,7 @@ export function PlannerPage() {
 
       <DaySessionCard />
 
-      <div className="grid lg:grid-cols-2 gap-5">
+      <div className="flex flex-col gap-5 max-w-3xl">
         {PLATFORMS.map((p, i) => (
           <PlatformCard key={p} platform={p} delay={i * 0.05} />
         ))}
