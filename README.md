@@ -38,9 +38,12 @@ npm run dev
 
 Use **Settings → Export JSON** on one device, then **Import JSON** on another.
 
-## Deploy
+## Browser extension
 
-Vercel: Framework Vite, Output `dist`, Node 20. No Redis/KV needed.
+A Chrome/Edge extension lives in `/extension` — step-by-step daily tasks that sync with the dashboard.
+
+See [extension/README.md](extension/README.md) for install steps.
+
 
 ## Build
 

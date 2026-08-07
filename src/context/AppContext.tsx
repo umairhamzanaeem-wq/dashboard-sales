@@ -20,7 +20,7 @@ import type {
   TimelineStatus,
 } from '@/types'
 import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
-import { loadState, saveState, clearState, importState } from '@/lib/storage'
+import { loadState, saveState, clearState, importState, normalizeState } from '@/lib/storage'
 import { useAuth } from '@/context/AuthContext'
 import {
   generateId,
@@ -525,6 +525,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(rootReducer, undefined, () => loadState(username))
   const hydrated = useRef(false)
   const notifiedSlots = useRef<Set<string>>(new Set())
+  const updatedAtRef = useRef(0)
+
+  useEffect(() => {
+    updatedAtRef.current = state.updatedAt ?? 0
+  }, [state.updatedAt])
 
   useEffect(() => {
     dispatch({ type: 'ENSURE_TODAY' })
@@ -535,6 +540,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!hydrated.current) return
     saveState(state, username)
   }, [state, username])
+
+  // Live sync from browser extension (popup updates while dashboard is open)
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return
+      const data = event.data
+      if (!data || data.source !== 'bd-extension' || data.type !== 'BD_STATE_PUSH') return
+      if (username && data.username && data.username !== username) return
+      const incoming = data.state as AppState | undefined
+      if (!incoming?.dailyProgress || !incoming?.settings) return
+      const remoteTs = incoming.updatedAt ?? 0
+      if (remoteTs <= updatedAtRef.current) return
+      dispatch({ type: 'HYDRATE', state: normalizeState(incoming) })
+      dispatch({ type: 'ENSURE_TODAY' })
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [username])
 
   // Theme
   useEffect(() => {

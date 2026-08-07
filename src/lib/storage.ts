@@ -77,7 +77,19 @@ export function loadState(username?: string | null): AppState {
 export function saveState(state: AppState, username?: string | null): void {
   try {
     const stamped = { ...state, updatedAt: Date.now() }
-    localStorage.setItem(storageKeyForUser(username), JSON.stringify(stamped))
+    const key = storageKeyForUser(username)
+    localStorage.setItem(key, JSON.stringify(stamped))
+
+    // Notify Chrome extension content script (if installed)
+    window.dispatchEvent(
+      new CustomEvent('bd-dashboard-save', {
+        detail: { key, username: username ?? null, state: stamped },
+      })
+    )
+    window.postMessage(
+      { source: 'bd-dashboard', type: 'BD_STATE_SAVED', key, username: username ?? null, state: stamped },
+      '*'
+    )
   } catch (e) {
     console.error('Failed to save state', e)
   }
