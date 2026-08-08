@@ -1,44 +1,39 @@
-import { decryptJson, encryptJson } from './crypto'
-import { cookieName, getConfig, parseCookies } from './http'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { clearCookie, setEncryptedCookie } from './http'
+import {
+  getConfig,
+  cookieName,
+  clearCookie,
+  decryptJson,
+  encryptJson,
+  parseCookies,
+  setEncryptedCookie,
+  assertConfig,
+} from './http.js'
 
-export interface GmailTokenBundle {
-  username: string
-  email: string
-  refreshToken: string
-  accessToken: string
-  expiry: number
-}
-
-export function readTokenBundle(req: VercelRequest, username: string): GmailTokenBundle | null {
-  const { encryptionKey } = getConfig()
+export function readTokenBundle(req, username) {
+  const config = getConfig()
+  if (config.missing.length) return null
   const cookies = parseCookies(req)
   const raw = cookies[cookieName(username)]
   if (!raw) return null
   try {
-    return decryptJson<GmailTokenBundle>(raw, encryptionKey)
+    return decryptJson(raw, config.encryptionKey)
   } catch {
     return null
   }
 }
 
-export function writeTokenBundle(res: VercelResponse, bundle: GmailTokenBundle) {
-  const { encryptionKey } = getConfig()
+export function writeTokenBundle(res, bundle) {
+  const { encryptionKey } = assertConfig()
   const sealed = encryptJson(bundle, encryptionKey)
   setEncryptedCookie(res, cookieName(bundle.username), sealed)
 }
 
-export function clearTokenBundle(res: VercelResponse, username: string) {
+export function clearTokenBundle(res, username) {
   clearCookie(res, cookieName(username))
 }
 
-export async function exchangeCode(code: string): Promise<{
-  access_token: string
-  refresh_token?: string
-  expires_in: number
-}> {
-  const { clientId, clientSecret, redirectUri } = getConfig()
+export async function exchangeCode(code) {
+  const { clientId, clientSecret, redirectUri } = assertConfig()
   const body = new URLSearchParams({
     code,
     client_id: clientId,
@@ -58,11 +53,8 @@ export async function exchangeCode(code: string): Promise<{
   return data
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<{
-  access_token: string
-  expires_in: number
-}> {
-  const { clientId, clientSecret } = getConfig()
+export async function refreshAccessToken(refreshToken) {
+  const { clientId, clientSecret } = assertConfig()
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -76,16 +68,14 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
   })
   const data = await res.json()
   if (!res.ok) {
-    const err = new Error(data.error_description || data.error || 'Token refresh failed') as Error & {
-      code?: string
-    }
+    const err = new Error(data.error_description || data.error || 'Token refresh failed')
     err.code = data.error
     throw err
   }
   return data
 }
 
-export async function getGmailAddress(accessToken: string): Promise<string> {
+export async function getGmailAddress(accessToken) {
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
@@ -93,19 +83,15 @@ export async function getGmailAddress(accessToken: string): Promise<string> {
   if (!res.ok) {
     throw new Error(data.error?.message || 'Failed to load Gmail profile')
   }
-  return data.emailAddress as string
+  return data.emailAddress
 }
 
-export async function ensureAccessToken(
-  req: VercelRequest,
-  res: VercelResponse,
-  username: string
-): Promise<GmailTokenBundle> {
+export async function ensureAccessToken(req, res, username) {
   const bundle = readTokenBundle(req, username)
   if (!bundle?.refreshToken) {
     const err = new Error(
       'Please connect your Gmail account in Settings before sending daily notifications.'
-    ) as Error & { status?: number }
+    )
     err.status = 401
     throw err
   }
@@ -116,7 +102,7 @@ export async function ensureAccessToken(
 
   try {
     const refreshed = await refreshAccessToken(bundle.refreshToken)
-    const next: GmailTokenBundle = {
+    const next = {
       ...bundle,
       accessToken: refreshed.access_token,
       expiry: Date.now() + refreshed.expires_in * 1000,
@@ -124,13 +110,11 @@ export async function ensureAccessToken(
     writeTokenBundle(res, next)
     return next
   } catch (e) {
-    const err = e as Error & { code?: string; status?: number }
-    if (err.code === 'invalid_grant') {
+    if (e.code === 'invalid_grant') {
       clearTokenBundle(res, username)
-      err.message =
-        'Gmail access expired or was revoked. Please reconnect Gmail in Settings.'
-      err.status = 401
+      e.message = 'Gmail access expired or was revoked. Please reconnect Gmail in Settings.'
+      e.status = 401
     }
-    throw err
+    throw e
   }
 }

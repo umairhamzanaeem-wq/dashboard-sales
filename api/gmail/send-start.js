@@ -1,20 +1,12 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { json, readBody } from '../_lib/http'
-import { ensureAccessToken } from '../_lib/tokens'
-import { sendDailyStartEmail, sendGmailMessage } from '../_lib/gmail'
+import { json, readBody } from '../lib/http.js'
+import { ensureAccessToken } from '../lib/tokens.js'
+import { sendDailyStartEmail, sendGmailMessage } from '../lib/gmail.js'
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
 
-    const body = readBody<{
-      username?: string
-      date?: string
-      startTime?: string
-      userName?: string
-      activities?: string[]
-    }>(req)
-
+    const body = readBody(req)
     const username = String(body.username || '').trim().toLowerCase()
     if (!username) return json(res, 400, { error: 'username is required' })
 
@@ -34,9 +26,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       to: bundle.email,
     })
   } catch (e) {
-    const err = e as Error & { status?: number }
-    return json(res, err.status || 500, {
-      error: err.message || 'Failed to send start day email',
+    return json(res, e.status || 500, {
+      error: e.message || 'Failed to send start day email',
       code: 'GMAIL_SEND_START_FAILED',
     })
   }

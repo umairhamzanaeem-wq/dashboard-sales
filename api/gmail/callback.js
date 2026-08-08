@@ -1,14 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getConfig, json } from '../_lib/http'
-import {
-  exchangeCode,
-  getGmailAddress,
-  writeTokenBundle,
-} from '../_lib/tokens'
+import { assertConfig, json } from '../lib/http.js'
+import { exchangeCode, getGmailAddress, writeTokenBundle } from '../lib/tokens.js'
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   try {
-    const { appUrl } = getConfig()
+    const { appUrl } = assertConfig()
     const error = String(req.query.error || '')
     if (error) {
       res.statusCode = 302
@@ -24,9 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let username = ''
     try {
-      const state = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8')) as {
-        username?: string
-      }
+      const state = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8'))
       username = String(state.username || '').toLowerCase()
     } catch {
       return json(res, 400, { error: 'Invalid OAuth state' })
@@ -39,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.statusCode = 302
       res.setHeader(
         'Location',
-        `${appUrl}/settings?gmail=error&reason=${encodeURIComponent('No refresh token returned. Disconnect previous access and try again.')}`
+        `${appUrl}/settings?gmail=error&reason=${encodeURIComponent('No refresh token returned. Disconnect previous Google access and try again.')}`
       )
       return res.end()
     }
@@ -57,14 +50,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Location', `${appUrl}/settings?gmail=connected`)
     return res.end()
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'OAuth callback failed'
     try {
-      const { appUrl } = getConfig()
+      const { appUrl } = assertConfig()
       res.statusCode = 302
-      res.setHeader('Location', `${appUrl}/settings?gmail=error&reason=${encodeURIComponent(message)}`)
+      res.setHeader(
+        'Location',
+        `${appUrl}/settings?gmail=error&reason=${encodeURIComponent(e.message || 'OAuth callback failed')}`
+      )
       return res.end()
     } catch {
-      return json(res, 500, { error: message })
+      return json(res, 500, { error: e.message || 'OAuth callback failed' })
     }
   }
 }

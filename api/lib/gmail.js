@@ -1,4 +1,4 @@
-export async function sendGmailMessage(accessToken: string, to: string, subject: string, bodyText: string) {
+export async function sendGmailMessage(accessToken, to, subject, bodyText) {
   const raw = [
     `To: ${to}`,
     `Subject: ${subject}`,
@@ -30,7 +30,7 @@ export async function sendGmailMessage(accessToken: string, to: string, subject:
   return data
 }
 
-export function formatDuration(totalSeconds: number): string {
+export function formatDuration(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds || 0))
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -38,12 +38,7 @@ export function formatDuration(totalSeconds: number): string {
   return `${m}m`
 }
 
-export function sendDailyStartEmail(input: {
-  date: string
-  startTime: string
-  userName: string
-  activities: string[]
-}): { subject: string; body: string } {
+export function sendDailyStartEmail(input) {
   const lines = [
     'Daily Work Started',
     '',
@@ -52,7 +47,7 @@ export function sendDailyStartEmail(input: {
     `User: ${input.userName}`,
     '',
     "Today's planned activities:",
-    ...(input.activities.length
+    ...(input.activities?.length
       ? input.activities.map((a, i) => `${i + 1}. ${a}`)
       : ['- No activities listed']),
     '',
@@ -64,35 +59,7 @@ export function sendDailyStartEmail(input: {
   }
 }
 
-export function sendDailyPerformanceEmail(input: {
-  date: string
-  startTime: string
-  endTime: string
-  totalWorkingTime: string
-  userName: string
-  performancePercent: number
-  productivityScore: number
-  instagramBusinesses: number
-  instagramDms: number
-  instagramReplies: string | number
-  instagramInterestedLeads: string | number
-  threadsPosts: number
-  threadsDms: number
-  linkedinConnections: number
-  linkedinFollowUps: number
-  linkedinComments: number
-  facebookComments: number
-  facebookDms: number
-  facebookPosts: number
-  upworkJobsReviewed: number
-  upworkProposals: number
-  emailOutreach: string | number
-  leadsGenerated: number
-  meetingsBooked: string | number
-  dealsWon: string | number
-  revenueGenerated: number
-  notes?: string
-}): { subject: string; body: string } {
+export function sendDailyPerformanceEmail(input) {
   const lines = [
     'Daily Performance Report',
     '',
