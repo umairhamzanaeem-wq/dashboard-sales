@@ -42,16 +42,16 @@ export function DashboardPage() {
     icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
     color: string
   }> = [
-    { title: "Today's Progress", value: overall.percent, suffix: '%', icon: Target, color: '#22c55e' },
-    { title: 'Current Streak', value: settings.streak, suffix: ' days', icon: Flame, color: '#f59e0b' },
-    { title: 'Connections Sent', value: todayStats.connections, icon: Users, color: '#3b82f6' },
-    { title: 'Follow-ups Done', value: todayStats.followUps, icon: MessageSquare, color: '#06b6d4' },
-    { title: 'FB Comments', value: todayStats.facebookComments, icon: Facebook, color: '#a855f7' },
+    { title: "Today's Progress", value: overall.percent, suffix: '%', icon: Target, color: '#E60000' },
+    { title: 'Current Streak', value: settings.streak, suffix: ' days', icon: Flame, color: '#F59E0B' },
+    { title: 'Connections Sent', value: todayStats.connections, icon: Users, color: '#FF1A1A' },
+    { title: 'Follow-ups Done', value: todayStats.followUps, icon: MessageSquare, color: '#B30000' },
+    { title: 'FB Comments', value: todayStats.facebookComments, icon: Facebook, color: '#1877f2' },
     { title: 'Facebook DMs', value: todayStats.facebookDms, icon: Mail, color: '#ec4899' },
-    { title: 'Jobs Reviewed', value: todayStats.jobsReviewed, icon: Briefcase, color: '#14b8a6' },
+    { title: 'Jobs Reviewed', value: todayStats.jobsReviewed, icon: Briefcase, color: '#14a800' },
     { title: 'Proposals Sent', value: todayStats.proposalsSent, icon: FileText, color: '#f97316' },
-    { title: 'Monthly Revenue', value: todayStats.monthlyRevenue, prefix: '$', icon: DollarSign, color: '#22c55e' },
-    { title: 'Unread Messages', value: todayStats.unreadMessages, icon: Mail, color: '#71717a' },
+    { title: 'Monthly Revenue', value: todayStats.monthlyRevenue, prefix: '$', icon: DollarSign, color: '#16A34A' },
+    { title: 'Unread Messages', value: todayStats.unreadMessages, icon: Mail, color: '#A3A3A3' },
   ]
 
   return (
@@ -67,11 +67,11 @@ export function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary-muted/30 p-6 sm:p-8"
+        className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 sm:p-8"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(34,197,94,0.12),_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(230,0,0,0.12),_transparent_50%)]" />
         <div className="relative flex flex-col sm:flex-row items-center gap-6">
-          <ProgressRing percent={overall.percent} size={120} strokeWidth={8} color="#22c55e">
+          <ProgressRing percent={overall.percent} size={120} strokeWidth={8} color="#E60000">
             <div className="text-center">
               <p className="text-2xl font-bold tabular-nums">{overall.percent}%</p>
               <p className="text-[10px] text-muted-foreground">Complete</p>
@@ -80,7 +80,7 @@ export function DashboardPage() {
           <div className="flex-1 text-center sm:text-left">
             <h2 className="text-xl font-semibold mb-1">
               {overall.percent >= 100
-                ? '🎉 All activities complete!'
+                ? 'All activities complete!'
                 : overall.percent >= 50
                   ? 'Keep pushing — you\'re halfway there'
                   : 'Time to grind — start your workflow'}
@@ -97,11 +97,11 @@ export function DashboardPage() {
               <p className="text-xs text-muted-foreground">Streak</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-primary">{settings.longestStreak}</p>
+              <p className="text-2xl font-bold text-foreground">{settings.longestStreak}</p>
               <p className="text-xs text-muted-foreground">Best</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-accent">{score}</p>
+              <p className="text-2xl font-bold text-primary">{score}</p>
               <p className="text-xs text-muted-foreground">Score</p>
             </div>
           </div>
@@ -159,7 +159,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-accent" />
+              <TrendingUp className="h-4 w-4 text-primary" />
               Quick Tips
             </CardTitle>
           </CardHeader>

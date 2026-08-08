@@ -40,7 +40,7 @@ export function AppLayout() {
       {/* FAB */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-black shadow-lg shadow-accent/30 hover:scale-105 transition-transform cursor-pointer">
+          <button className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-brand-bright hover:scale-105 transition-all cursor-pointer">
             <Plus className="h-5 w-5" />
           </button>
         </DropdownMenuTrigger>

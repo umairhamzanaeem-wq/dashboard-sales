@@ -42,7 +42,7 @@ export function ProgressRing({
   percent,
   size = 80,
   strokeWidth = 6,
-  color = '#22c55e',
+  color = '#E60000',
   className,
   children,
 }: ProgressRingProps) {
@@ -58,7 +58,8 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#27272a"
+          stroke="currentColor"
+          className="text-border"
           strokeWidth={strokeWidth}
         />
         <motion.circle
@@ -133,7 +134,7 @@ export function StatCard({
   suffix,
   prefix,
   icon: Icon,
-  color = '#22c55e',
+  color = '#E60000',
   delay = 0,
   subtitle,
 }: {
@@ -179,7 +180,7 @@ export function CompletedBadge({ show }: { show: boolean }) {
     <motion.span
       initial={{ scale: 0 }}
       animate={{ scale: 1 }}
-      className="inline-flex items-center gap-1 rounded-md bg-accent/20 border border-accent/30 px-2 py-0.5 text-xs font-medium text-accent"
+      className="inline-flex items-center gap-1 rounded-md bg-success/15 border border-success/30 px-2 py-0.5 text-xs font-medium text-success"
     >
       ✓ Completed
     </motion.span>

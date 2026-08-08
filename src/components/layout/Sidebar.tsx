@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -19,7 +19,6 @@ import { ProgressRing } from '@/components/shared'
 import { UserAvatar } from '@/components/UserAvatar'
 import { BrandLogo } from '@/components/BrandLogo'
 import { getUserProfile } from '@/lib/auth'
-import { useNavigate } from 'react-router-dom'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,11 +49,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const content = (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-sidebar">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-        <BrandLogo size="md" rounded="xl" />
+        <BrandLogo size="md" rounded="xl" className="brand-glow" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">BD Dashboard</p>
+          <p className="text-sm font-semibold tracking-tight truncate">CRM Dashboard</p>
           <p className="text-[11px] text-muted-foreground truncate">Business Development</p>
         </div>
         <button
@@ -81,26 +80,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               {active && (
                 <motion.div
                   layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-lg bg-muted border border-border"
+                  className="absolute inset-0 rounded-lg nav-active"
                   transition={{ type: 'spring', stiffness: 350, damping: 30 }}
                 />
               )}
-              <item.icon className={cn('relative h-4 w-4', active && 'text-accent')} />
+              <item.icon className={cn('relative h-4 w-4', active && 'text-primary')} />
               <span className="relative">{item.label}</span>
+              {active && (
+                <span className="relative ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
             </NavLink>
           )
         })}
       </nav>
 
       <div className="border-t border-border p-4 space-y-3">
-        <div className="rounded-xl bg-muted/50 border border-border p-4 flex items-center gap-3">
-          <ProgressRing percent={overall.percent} size={48} strokeWidth={4}>
-            <span className="text-[10px] font-semibold">{overall.percent}%</span>
+        <div className="rounded-xl bg-muted/60 border border-border p-4 flex items-center gap-3">
+          <ProgressRing percent={overall.percent} size={48} strokeWidth={4} color="#E60000">
+            <span className="text-[10px] font-semibold tabular-nums">{overall.percent}%</span>
           </ProgressRing>
           <div className="min-w-0">
-            <p className="text-xs font-medium">Today's Progress</p>
+            <p className="text-xs font-medium">Today&apos;s Progress</p>
             <p className="text-[11px] text-muted-foreground truncate">
-              🔥 {settings.streak} day streak
+              {settings.streak} day streak
             </p>
           </div>
         </div>
@@ -123,12 +125,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop */}
       <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30">
         {content}
       </aside>
 
-      {/* Mobile overlay */}
       <AnimatePresence>
         {open && (
           <>

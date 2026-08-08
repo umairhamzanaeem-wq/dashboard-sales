@@ -4,26 +4,42 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
-  --color-card: #111113;
-  --color-card-hover: #18181b;
-  --color-muted: #18181b;
-  --color-muted-foreground: #a1a1aa;
-  --color-border: #27272a;
-  --color-border-subtle: #1f1f23;
-  --color-accent: #22c55e;
-  --color-accent-muted: #166534;
-  --color-primary: #3b82f6;
-  --color-primary-muted: #1e3a5f;
+  /* Dark Mode (default) — predominantly black */
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  --color-card: #0d0d0d;
+  --color-card-hover: #151515;
+  --color-muted: #151515;
+  --color-muted-foreground: #a3a3a3;
+  --color-border: #262626;
+  --color-border-subtle: #1a1a1a;
+  --color-sidebar: #0d0d0d;
+
+  /* Brand red */
+  --color-primary: #e60000;
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: #990000;
+  --color-brand: #e60000;
+  --color-brand-bright: #ff1a1a;
+  --color-brand-dark: #990000;
+
+  /* Accent = brand red for CTAs / active / progress */
+  --color-accent: #e60000;
+  --color-accent-muted: #990000;
+  --color-accent-foreground: #ffffff;
+
+  /* Semantic */
+  --color-success: #22c55e;
+  --color-success-muted: #14532d;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  --color-ring: #e60000;
+
+  /* Legacy chart helpers (kept for compatibility) */
   --color-purple: #a855f7;
   --color-cyan: #06b6d4;
   --color-orange: #f97316;
   --color-pink: #ec4899;
-  --color-sidebar: #0c0c0e;
-  --color-ring: #3b82f6;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -53,17 +69,35 @@ body {
   min-height: 100vh;
 }
 
+/* Light Mode — predominantly white */
 html.light {
   color-scheme: light;
-  --color-background: #fafafa;
-  --color-foreground: #09090b;
-  --color-card: #ffffff;
-  --color-card-hover: #f4f4f5;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #71717a;
-  --color-border: #e4e4e7;
-  --color-border-subtle: #f4f4f5;
+  --color-background: #ffffff;
+  --color-foreground: #111111;
+  --color-card: #f8f8f8;
+  --color-card-hover: #f1f1f1;
+  --color-muted: #f1f1f1;
+  --color-muted-foreground: #555555;
+  --color-border: #e5e5e5;
+  --color-border-subtle: #f1f1f1;
   --color-sidebar: #ffffff;
+
+  --color-primary: #e60000;
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: #b30000;
+  --color-brand: #e60000;
+  --color-brand-bright: #ff1a1a;
+  --color-brand-dark: #b30000;
+
+  --color-accent: #e60000;
+  --color-accent-muted: #b30000;
+  --color-accent-foreground: #ffffff;
+
+  --color-success: #16a34a;
+  --color-success-muted: #dcfce7;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-ring: #e60000;
 }
 
 html.light body {
@@ -81,12 +115,20 @@ html.light body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: #404040;
   border-radius: 3px;
 }
 
+html.light ::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: #525252;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
 }
 
 @keyframes shimmer {
@@ -95,21 +137,45 @@ html.light body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    var(--color-border) 50%,
+    var(--color-muted) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-md);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #22c55e 0%, #3b82f6 50%, #a855f7 100%);
+  background: linear-gradient(135deg, #e60000 0%, #ff1a1a 45%, #ffffff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+html.light .gradient-text {
+  background: linear-gradient(135deg, #b30000 0%, #e60000 50%, #111111 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .glass {
-  background: rgba(17, 17, 19, 0.8);
+  background: color-mix(in srgb, var(--color-card) 85%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(39, 39, 42, 0.8);
+  border: 1px solid var(--color-border);
+}
+
+/* Brand helpers */
+.brand-glow {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent),
+    0 8px 24px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.nav-active {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  color: var(--color-foreground);
 }

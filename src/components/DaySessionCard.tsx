@@ -28,11 +28,11 @@ export function DaySessionCard() {
       animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl border border-border bg-card overflow-hidden"
     >
-      <div className="h-1 w-full bg-gradient-to-r from-accent via-primary to-purple" />
+      <div className="h-1 w-full bg-gradient-to-r from-brand-dark via-primary to-brand-bright" />
       <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="rounded-xl bg-muted p-3 shrink-0">
-            <CalendarCheck className="h-5 w-5 text-accent" />
+            <CalendarCheck className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">

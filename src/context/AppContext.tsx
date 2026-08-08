@@ -563,6 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.settings.theme === 'dark')
     document.documentElement.classList.toggle('light', state.settings.theme === 'light')
+    localStorage.setItem('bd-theme-pref', state.settings.theme)
   }, [state.settings.theme])
 
   // Timeline tick
@@ -583,7 +584,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         particleCount: 150,
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b'],
+        colors: ['#E60000', '#FF1A1A', '#B30000', '#F59E0B'],
       })
       dispatch({ type: 'SET_CONFETTI_SHOWN' })
       dispatch({ type: 'UPDATE_STREAK' })

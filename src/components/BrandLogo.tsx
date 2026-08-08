@@ -8,9 +8,9 @@ interface BrandLogoProps {
 
 const sizes = {
   sm: 'h-8 w-8',
-  md: 'h-9 w-9',
-  lg: 'h-12 w-12',
-  xl: 'h-16 w-16',
+  md: 'h-10 w-10',
+  lg: 'h-14 w-14',
+  xl: 'h-20 w-20',
 }
 
 const radii = {
@@ -24,9 +24,9 @@ export function BrandLogo({ size = 'md', className, rounded = 'xl' }: BrandLogoP
   return (
     <img
       src="/logo.png"
-      alt="BD Dashboard"
+      alt="Company logo"
       className={cn(
-        'object-cover shrink-0 border border-border shadow-sm',
+        'object-cover shrink-0 border border-border/60 shadow-sm',
         sizes[size],
         radii[rounded],
         className

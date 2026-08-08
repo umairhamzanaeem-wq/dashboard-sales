@@ -38,7 +38,7 @@ export function TrackerPage() {
         animate={{ opacity: 1, scale: 1 }}
         className={`relative overflow-hidden rounded-2xl border p-6 ${
           complete
-            ? 'border-accent/40 bg-gradient-to-br from-accent/10 via-card to-primary/10'
+            ? 'border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card'
             : 'border-border bg-card'
         }`}
       >
@@ -49,8 +49,8 @@ export function TrackerPage() {
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 200 }}
             >
-              <p className="text-3xl mb-2">🎉</p>
-              <h2 className="text-xl font-bold text-accent">Congratulations!</h2>
+              <p className="text-3xl mb-2">✓</p>
+              <h2 className="text-xl font-bold text-primary">Congratulations!</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 You completed every business development activity today. Keep the streak alive!
               </p>
@@ -59,7 +59,7 @@ export function TrackerPage() {
         )}
 
         <div className="flex flex-col sm:flex-row items-center gap-8">
-          <ProgressRing percent={overall.percent} size={140} strokeWidth={10} color={complete ? '#22c55e' : '#3b82f6'}>
+          <ProgressRing percent={overall.percent} size={140} strokeWidth={10} color={complete ? '#16A34A' : '#E60000'}>
             <div className="text-center">
               <p className="text-3xl font-bold tabular-nums">{overall.percent}%</p>
               <p className="text-[10px] text-muted-foreground">Overall</p>
@@ -67,15 +67,15 @@ export function TrackerPage() {
           </ProgressRing>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 flex-1 w-full">
-            <ScoreItem icon={Trophy} label="Productivity Score" value={String(score)} color="#f59e0b" />
-            <ScoreItem icon={CheckCircle2} label="Tasks Completed" value={String(overall.tasksCompleted)} color="#22c55e" />
-            <ScoreItem icon={ListTodo} label="Remaining Tasks" value={String(overall.remaining)} color="#a1a1aa" />
-            <ScoreItem icon={Flame} label="Current Streak" value={`${settings.streak} days`} color="#f97316" />
+            <ScoreItem icon={Trophy} label="Productivity Score" value={String(score)} color="#F59E0B" />
+            <ScoreItem icon={CheckCircle2} label="Tasks Completed" value={String(overall.tasksCompleted)} color="#16A34A" />
+            <ScoreItem icon={ListTodo} label="Remaining Tasks" value={String(overall.remaining)} color="#A3A3A3" />
+            <ScoreItem icon={Flame} label="Current Streak" value={`${settings.streak} days`} color="#F97316" />
             <ScoreItem
               icon={Clock}
               label="Time Worked"
               value={formatTime(progress.totalTimeWorkedSeconds)}
-              color="#3b82f6"
+              color="#E60000"
             />
             <div className="rounded-xl bg-muted/50 border border-border p-3 flex items-center justify-center">
               <CompletedBadge show={complete} />

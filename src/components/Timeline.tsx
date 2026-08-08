@@ -35,13 +35,13 @@ export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; i
         <div
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 z-10 overflow-hidden',
-            isActive ? 'border-accent bg-accent/20 animate-pulse' : 'border-border bg-card'
+            isActive ? 'border-primary/50 bg-primary/10 animate-pulse' : 'border-border bg-card'
           )}
         >
           {logo ? (
             <img src={logo} alt="" className="h-full w-full object-cover" />
           ) : (
-            <Clock className="h-4 w-4" style={{ color: isActive ? '#22c55e' : color }} />
+            <Clock className="h-4 w-4" style={{ color: isActive ? '#E60000' : color }} />
           )}
         </div>
         {!isLast && <div className="w-px flex-1 bg-border min-h-[24px]" />}
@@ -50,7 +50,7 @@ export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; i
       <div
         className={cn(
           'flex-1 mb-4 rounded-xl border bg-card p-4 transition-all',
-          isActive ? 'border-accent/50 shadow-lg shadow-accent/5' : 'border-border'
+          isActive ? 'border-primary/40 shadow-lg shadow-primary/5' : 'border-border'
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -64,7 +64,7 @@ export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; i
             </p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-mono font-semibold tabular-nums" style={{ color: isActive ? '#22c55e' : undefined }}>
+            <p className="text-lg font-mono font-semibold tabular-nums" style={{ color: isActive ? '#E60000' : undefined }}>
               {formatTime(block.elapsedSeconds)}
             </p>
             <p className="text-[10px] text-muted-foreground">Live Timer</p>

@@ -92,7 +92,7 @@ export function HistoryPage() {
         actions={
           <button
             onClick={saveToday}
-            className="text-xs text-accent hover:underline cursor-pointer"
+            className="text-xs text-primary hover:underline cursor-pointer"
           >
             Save today to history
           </button>
@@ -165,7 +165,7 @@ export function HistoryPage() {
                         title={entry ? `${pct}% complete` : undefined}
                       >
                         <span className="text-muted-foreground">{format(day, 'd')}</span>
-                        {entry && <span className="text-[9px] font-semibold text-accent">{pct}%</span>}
+                        {entry && <span className="text-[9px] font-semibold text-primary">{pct}%</span>}
                       </div>
                     )
                   })}
@@ -182,7 +182,7 @@ export function HistoryPage() {
                     className="h-1"
                     style={{
                       width: `${h.completionPercent}%`,
-                      background: h.completionPercent >= 100 ? '#22c55e' : '#3b82f6',
+                      background: h.completionPercent >= 100 ? '#16A34A' : '#E60000',
                     }}
                   />
                   <CardContent className="p-4">
@@ -238,7 +238,7 @@ export function HistoryPage() {
                     {sorted.map((h) => (
                       <tr key={h.date} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="p-3 tabular-nums">{h.date}</td>
-                        <td className="p-3 font-semibold text-accent">{h.completionPercent}%</td>
+                        <td className="p-3 font-semibold text-primary">{h.completionPercent}%</td>
                         <td className="p-3">{h.tasksCompleted}/{h.tasksTotal}</td>
                         <td className="p-3">{h.connections}</td>
                         <td className="p-3">{h.followUps}</td>

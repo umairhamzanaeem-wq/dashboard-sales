@@ -103,8 +103,8 @@ export function AnalyticsPage() {
       <PageHeader title="Analytics" description="Beautiful insights into your consistency and output" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Today Completion" value={overall.percent} suffix="%" icon={Target} color="#22c55e" />
-        <StatCard title="Weekly Avg" value={avgWeekly} suffix="%" icon={TrendingUp} color="#3b82f6" delay={0.05} />
+        <StatCard title="Today Completion" value={overall.percent} suffix="%" icon={Target} color="#E60000" />
+        <StatCard title="Weekly Avg" value={avgWeekly} suffix="%" icon={TrendingUp} color="#FF1A1A" delay={0.05} />
         <StatCard title="Current Streak" value={settings.streak} icon={Flame} color="#f59e0b" delay={0.1} />
         <StatCard title="Days Tracked" value={state.history.length} icon={Activity} color="#a855f7" delay={0.15} />
       </div>
@@ -115,15 +115,15 @@ export function AnalyticsPage() {
             <AreaChart data={last14}>
               <defs>
                 <linearGradient id="compGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#E60000" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#E60000" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
               <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
-              <Area type="monotone" dataKey="completion" stroke="#22c55e" fill="url(#compGrad)" strokeWidth={2} />
+              <Area type="monotone" dataKey="completion" stroke="#E60000" fill="url(#compGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -135,7 +135,7 @@ export function AnalyticsPage() {
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} domain={[0, 100]} />
               <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
-              <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
+              <Line type="monotone" dataKey="score" stroke="#FF1A1A" strokeWidth={2} dot={{ fill: '#FF1A1A' }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -147,7 +147,7 @@ export function AnalyticsPage() {
               <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
               <YAxis stroke="#71717a" fontSize={10} />
               <Tooltip contentStyle={tipStyle} itemStyle={tipItemStyle} labelStyle={tipLabelStyle} />
-              <Bar dataKey="connections" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="connections" fill="#E60000" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

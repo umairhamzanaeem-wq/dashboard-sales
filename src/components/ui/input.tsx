@@ -45,8 +45,8 @@ export const Badge = ({
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'outline' | 'muted'
 }) => {
   const variants = {
-    default: 'bg-primary/20 text-primary border-primary/30',
-    success: 'bg-accent/20 text-accent border-accent/30',
+    default: 'bg-primary/15 text-primary border-primary/30',
+    success: 'bg-success/15 text-success border-success/30',
     warning: 'bg-warning/20 text-warning border-warning/30',
     danger: 'bg-danger/20 text-danger border-danger/30',
     outline: 'bg-transparent text-muted-foreground border-border',

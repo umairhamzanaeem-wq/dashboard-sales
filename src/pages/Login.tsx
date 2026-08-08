@@ -1,11 +1,25 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { BrandLogo } from '@/components/BrandLogo'
+
+type ThemeMode = 'dark' | 'light'
+
+function readGuestTheme(): ThemeMode {
+  const saved = localStorage.getItem('bd-theme-pref')
+  if (saved === 'light' || saved === 'dark') return saved
+  return document.documentElement.classList.contains('light') ? 'light' : 'dark'
+}
+
+function applyTheme(theme: ThemeMode) {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+  document.documentElement.classList.toggle('light', theme === 'light')
+  localStorage.setItem('bd-theme-pref', theme)
+}
 
 export function LoginPage() {
   const { isAuthenticated, login } = useAuth()
@@ -15,6 +29,11 @@ export function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [theme, setTheme] = useState<ThemeMode>(() => readGuestTheme())
+
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
 
   if (isAuthenticated) return <Navigate to="/" replace />
 
@@ -33,16 +52,27 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(34,197,94,0.12),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(59,130,246,0.1),_transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(230,0,0,0.18),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_rgba(153,0,0,0.12),_transparent_50%)]" />
+      <div className="absolute top-4 right-4 z-10">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        >
+          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          {theme === 'dark' ? 'Light' : 'Dark'}
+        </Button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative w-full max-w-md rounded-2xl border border-border bg-card/90 backdrop-blur-xl p-8 shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-card/95 backdrop-blur-xl p-8 shadow-2xl"
       >
         <div className="flex flex-col items-center mb-8">
-          <BrandLogo size="lg" rounded="2xl" className="mb-4 shadow-lg shadow-red-900/30" />
-          <h1 className="text-2xl font-semibold tracking-tight">BD Dashboard</h1>
+          <BrandLogo size="xl" rounded="2xl" className="mb-5 brand-glow" />
+          <h1 className="text-2xl font-semibold tracking-tight">CRM Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
         </div>
 
@@ -88,7 +118,7 @@ export function LoginPage() {
             </p>
           )}
 
-          <Button type="submit" variant="accent" className="w-full h-11" disabled={loading}>
+          <Button type="submit" className="w-full h-11" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>

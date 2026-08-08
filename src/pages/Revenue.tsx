@@ -46,7 +46,7 @@ interface FormData {
   notes: string
 }
 
-const COLORS = ['#22c55e', '#14b8a6', '#3b82f6', '#a855f7', '#f97316']
+const COLORS = ['#E60000', '#FF1A1A', '#B30000', '#F59E0B', '#16A34A']
 
 export function RevenuePage() {
   const { state, addRevenue, deleteRevenue, settings } = useApp()
@@ -116,8 +116,8 @@ export function RevenuePage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Revenue" value={totalRevenue} icon={DollarSign} color="#22c55e" />
-        <StatCard title="Monthly Revenue" value={monthlyRevenue} icon={TrendingUp} color="#3b82f6" delay={0.05} />
+        <StatCard title="Total Revenue" value={totalRevenue} icon={DollarSign} color="#E60000" />
+        <StatCard title="Monthly Revenue" value={monthlyRevenue} icon={TrendingUp} color="#FF1A1A" delay={0.05} />
         <StatCard title="Largest Payment" value={largest} icon={Award} color="#f59e0b" delay={0.1} />
         <StatCard title="Avg Monthly" value={avgMonthly} icon={BarChart3} color="#a855f7" delay={0.15} />
       </div>
@@ -132,8 +132,8 @@ export function RevenuePage() {
               <AreaChart data={monthlyChart}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#E60000" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#E60000" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -145,7 +145,7 @@ export function RevenuePage() {
                   labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
-                <Area type="monotone" dataKey="amount" stroke="#22c55e" fill="url(#revGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="amount" stroke="#E60000" fill="url(#revGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -196,7 +196,7 @@ export function RevenuePage() {
                   labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
-                <Bar dataKey="amount" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="amount" fill="#E60000" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -244,7 +244,7 @@ export function RevenuePage() {
                         </span>
                       </td>
                       <td className="py-3">{r.client || '—'}</td>
-                      <td className="py-3 text-right font-semibold text-accent tabular-nums">{formatCurrency(r.amount)}</td>
+                      <td className="py-3 text-right font-semibold text-primary tabular-nums">{formatCurrency(r.amount)}</td>
                       <td className="py-3 text-muted-foreground max-w-[200px] truncate">{r.notes || '—'}</td>
                       <td className="py-3">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteRevenue(r.id)}>

@@ -161,7 +161,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
         <div className="hidden md:flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 border border-border">
           <span className="text-xs text-muted-foreground">Progress</span>
-          <span className="text-sm font-semibold text-accent tabular-nums">
+          <span className="text-sm font-semibold text-primary tabular-nums">
             <AnimatedNumber value={overall.percent} suffix="%" />
           </span>
         </div>
@@ -175,7 +175,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <Button variant="ghost" size="icon" className="relative" onClick={requestNotificationPermission}>
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -207,7 +207,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 <DropdownMenuItem
                   key={n.id}
                   onClick={() => markNotificationRead(n.id)}
-                  className={!n.read ? 'bg-accent/5' : ''}
+                  className={!n.read ? 'bg-primary/5' : ''}
                 >
                   <div className="flex flex-col gap-0.5 min-w-0">
                     <span className="text-sm font-medium truncate">{n.title}</span>
@@ -220,12 +220,23 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         </DropdownMenu>
 
         <Button
-          variant="ghost"
-          size="icon"
+          variant="outline"
+          size="sm"
+          className="gap-1.5 px-2.5"
           onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-          title="Toggle theme"
+          title={settings.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {settings.theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {settings.theme === 'dark' ? (
+            <>
+              <Sun className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline text-xs">Light</span>
+            </>
+          ) : (
+            <>
+              <Moon className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline text-xs">Dark</span>
+            </>
+          )}
         </Button>
 
         <UserAvatar username={username} size="sm" className="hidden sm:block" />

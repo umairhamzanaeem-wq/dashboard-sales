@@ -89,7 +89,7 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
                         </Button>
                       </div>
                     </div>
-                    <Progress value={pct} className="h-1.5" indicatorClassName={done ? 'bg-accent' : undefined} />
+                    <Progress value={pct} className="h-1.5" indicatorClassName={done ? 'bg-success' : undefined} />
                     {done && <CompletedBadge show />}
                   </div>
                 )

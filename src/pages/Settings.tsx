@@ -129,25 +129,55 @@ export function SettingsPage() {
       <PageHeader title="Settings" description="Customize targets, timeline, theme & data" />
 
       {msg && (
-        <div className="rounded-lg border border-accent/30 bg-accent/10 px-4 py-2 text-sm text-accent">{msg}</div>
+        <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm text-primary">{msg}</div>
       )}
 
       {/* Theme */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
-            <Palette className="h-4 w-4 text-primary" /> Theme
+            <Palette className="h-4 w-4 text-primary" /> Appearance
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Dark Mode</p>
-            <p className="text-xs text-muted-foreground">Premium dark SaaS aesthetic</p>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Dark Mode</p>
+              <p className="text-xs text-muted-foreground">
+                Toggle between white light mode and black dark mode
+              </p>
+            </div>
+            <Switch
+              checked={settings.theme === 'dark'}
+              onCheckedChange={(c) => updateSettings({ theme: c ? 'dark' : 'light' })}
+            />
           </div>
-          <Switch
-            checked={settings.theme === 'dark'}
-            onCheckedChange={(c) => updateSettings({ theme: c ? 'dark' : 'light' })}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => updateSettings({ theme: 'light' })}
+              className={`rounded-xl border p-4 text-left transition-colors cursor-pointer ${
+                settings.theme === 'light'
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                  : 'border-border hover:bg-muted'
+              }`}
+            >
+              <p className="text-sm font-medium">Light</p>
+              <p className="text-[11px] text-muted-foreground mt-1">White surfaces, red accents</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ theme: 'dark' })}
+              className={`rounded-xl border p-4 text-left transition-colors cursor-pointer ${
+                settings.theme === 'dark'
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                  : 'border-border hover:bg-muted'
+              }`}
+            >
+              <p className="text-sm font-medium">Dark</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Black surfaces, red accents</p>
+            </button>
+          </div>
         </CardContent>
       </Card>
 
@@ -193,7 +223,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
-            <Target className="h-4 w-4 text-accent" /> Daily Targets
+            <Target className="h-4 w-4 text-primary" /> Daily Targets
           </CardTitle>
           <Button size="sm" variant="outline" onClick={applyTargetsToToday}>Apply to Today</Button>
         </CardHeader>
@@ -232,7 +262,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
-            <Clock className="h-4 w-4 text-cyan" /> Timeline Schedule
+            <Clock className="h-4 w-4 text-primary" /> Timeline Schedule
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
