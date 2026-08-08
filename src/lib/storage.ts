@@ -1,5 +1,10 @@
-import type { AppState, DailyProgress } from '@/types'
-import { createDefaultState } from './defaults'
+import type { AppState, DailyProgress, Platform, TimelineBlock } from '@/types'
+import {
+  createDefaultState,
+  createPlatformSections,
+  DEFAULT_TARGETS,
+  DEFAULT_TIMELINE,
+} from './defaults'
 
 export function storageKeyForUser(username?: string | null): string {
   const user = username?.trim().toLowerCase()
@@ -12,8 +17,66 @@ const FACEBOOK_FRIEND_REQUEST_TASK = {
   completed: false,
 }
 
-function normalizeProgress(progress: DailyProgress): DailyProgress {
+const PLATFORM_ORDER: Platform[] = [
+  'fiverr',
+  'linkedin_saad',
+  'linkedin_umair',
+  'facebook',
+  'threads',
+  'instagram',
+  'upwork',
+  'review',
+]
+
+function insertMissingTimelineBlocks(timeline: TimelineBlock[]): TimelineBlock[] {
+  const existing = new Set(timeline.map((t) => t.id))
+  const missing = DEFAULT_TIMELINE.blocks.filter((b) => !existing.has(b.id))
+  if (missing.length === 0) return timeline
+
+  const next = [...timeline]
+  for (const block of missing) {
+    const entry: TimelineBlock = {
+      id: block.id,
+      name: block.name,
+      startTime: block.startTime,
+      estimatedMinutes: block.estimatedMinutes,
+      status: 'pending',
+      elapsedSeconds: 0,
+      startedAt: null,
+      completedAt: null,
+    }
+    const orderIdx = PLATFORM_ORDER.indexOf(block.id)
+    let insertAt = next.length
+    for (let i = 0; i < next.length; i++) {
+      const curOrder = PLATFORM_ORDER.indexOf(next[i].id)
+      if (curOrder > orderIdx) {
+        insertAt = i
+        break
+      }
+    }
+    next.splice(insertAt, 0, entry)
+  }
+  return next
+}
+
+function normalizeProgress(
+  progress: DailyProgress,
+  targets = DEFAULT_TARGETS
+): DailyProgress {
+  const mergedTargets = {
+    ...DEFAULT_TARGETS,
+    ...targets,
+    threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
+    instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
+  }
+  const defaults = createPlatformSections(mergedTargets)
   const platforms = { ...progress.platforms }
+
+  for (const id of PLATFORM_ORDER) {
+    if (!platforms[id]) {
+      platforms[id] = defaults[id]
+    }
+  }
 
   // Append new Facebook task if missing — never wipe existing checklist data
   if (platforms.facebook) {
@@ -34,6 +97,7 @@ function normalizeProgress(progress: DailyProgress): DailyProgress {
   return {
     ...progress,
     platforms,
+    timeline: insertMissingTimelineBlocks(progress.timeline ?? []),
     dayStatus: progress.dayStatus ?? 'not_started',
     dayStartedAt: progress.dayStartedAt ?? null,
     dayFinishedAt: progress.dayFinishedAt ?? null,
@@ -41,9 +105,53 @@ function normalizeProgress(progress: DailyProgress): DailyProgress {
 }
 
 export function normalizeState(parsed: AppState): AppState {
+  const defaults = createDefaultState()
+  const settings = {
+    ...defaults.settings,
+    ...parsed.settings,
+    dailyTargets: {
+      ...DEFAULT_TARGETS,
+      ...parsed.settings?.dailyTargets,
+      threads: {
+        ...DEFAULT_TARGETS.threads,
+        ...parsed.settings?.dailyTargets?.threads,
+      },
+      instagram: {
+        ...DEFAULT_TARGETS.instagram,
+        ...parsed.settings?.dailyTargets?.instagram,
+      },
+    },
+    reminderTimes: {
+      ...defaults.settings.reminderTimes,
+      ...parsed.settings?.reminderTimes,
+    },
+    timeline: {
+      blocks: (() => {
+        const existing = parsed.settings?.timeline?.blocks ?? []
+        const ids = new Set(existing.map((b) => b.id))
+        const missing = DEFAULT_TIMELINE.blocks.filter((b) => !ids.has(b.id))
+        if (missing.length === 0) return existing
+        const next = [...existing]
+        for (const block of missing) {
+          const orderIdx = PLATFORM_ORDER.indexOf(block.id)
+          let insertAt = next.length
+          for (let i = 0; i < next.length; i++) {
+            if (PLATFORM_ORDER.indexOf(next[i].id) > orderIdx) {
+              insertAt = i
+              break
+            }
+          }
+          next.splice(insertAt, 0, { ...block })
+        }
+        return next
+      })(),
+    },
+  }
+
   return {
     ...parsed,
-    dailyProgress: normalizeProgress(parsed.dailyProgress),
+    settings,
+    dailyProgress: normalizeProgress(parsed.dailyProgress, settings.dailyTargets),
     history: parsed.history ?? [],
     revenue: parsed.revenue ?? [],
     notifications: parsed.notifications ?? [],

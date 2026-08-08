@@ -23,6 +23,8 @@ const REMINDER_LABELS: Record<Platform, string> = {
   linkedin_saad: 'LinkedIn (Saad)',
   linkedin_umair: 'LinkedIn (Umair)',
   facebook: 'Facebook',
+  threads: 'Threads',
+  instagram: 'Instagram',
   upwork: 'Upwork',
   review: 'Daily Review',
 }
@@ -52,7 +54,7 @@ export function SettingsPage() {
     const fresh = createDailyProgress(settings.dailyTargets, settings.timeline, state.dailyProgress.date)
     // Preserve today's completed work where possible by only updating targets
     const platforms = { ...state.dailyProgress.platforms }
-    ;(['linkedin_saad', 'linkedin_umair', 'facebook', 'upwork'] as const).forEach((pid) => {
+    ;(['linkedin_saad', 'linkedin_umair', 'facebook', 'threads', 'instagram', 'upwork'] as const).forEach((pid) => {
       platforms[pid] = {
         ...platforms[pid],
         counters: platforms[pid].counters.map((c) => {
@@ -210,6 +212,14 @@ export function SettingsPage() {
             <NumField label="Comments" value={targets.facebook.comments} onChange={(v) => updateTarget('facebook', 'comments', v)} />
             <NumField label="DMs" value={targets.facebook.dms} onChange={(v) => updateTarget('facebook', 'dms', v)} />
             <NumField label="Posts" value={targets.facebook.posts} onChange={(v) => updateTarget('facebook', 'posts', v)} />
+          </TargetGroup>
+          <TargetGroup title="Threads">
+            <NumField label="Daily Posts" value={targets.threads.posts} onChange={(v) => updateTarget('threads', 'posts', v)} />
+            <NumField label="DMs / Replies" value={targets.threads.dms} onChange={(v) => updateTarget('threads', 'dms', v)} />
+          </TargetGroup>
+          <TargetGroup title="Instagram">
+            <NumField label="Businesses Found" value={targets.instagram.businesses} onChange={(v) => updateTarget('instagram', 'businesses', v)} />
+            <NumField label="DMs Sent" value={targets.instagram.dms} onChange={(v) => updateTarget('instagram', 'dms', v)} />
           </TargetGroup>
           <TargetGroup title="Upwork">
             <NumField label="Jobs Reviewed" value={targets.upwork.jobsReviewed} onChange={(v) => updateTarget('upwork', 'jobsReviewed', v)} />

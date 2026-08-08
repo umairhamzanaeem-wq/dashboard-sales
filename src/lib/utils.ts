@@ -162,17 +162,32 @@ export function currentTimeString(): string {
 
 export function platformColor(platform: string): string {
   const map: Record<string, string> = {
-    fiverr: '#22c55e',
-    linkedin_saad: '#3b82f6',
-    linkedin_umair: '#06b6d4',
-    facebook: '#a855f7',
-    upwork: '#14b8a6',
+    fiverr: '#1dbf73',
+    linkedin_saad: '#0a66c2',
+    linkedin_umair: '#0a66c2',
+    facebook: '#1877f2',
+    threads: '#ffffff',
+    instagram: '#e1306c',
+    upwork: '#14a800',
     review: '#f59e0b',
-    Fiverr: '#22c55e',
-    Upwork: '#14b8a6',
+    Fiverr: '#1dbf73',
+    Upwork: '#14a800',
     'Direct Clients': '#3b82f6',
     Agency: '#a855f7',
     Referral: '#f97316',
   }
   return map[platform] ?? '#71717a'
+}
+
+export function platformLogo(platform: string): string | undefined {
+  const map: Record<string, string> = {
+    fiverr: '/platforms/fiverr.png',
+    linkedin_saad: '/platforms/linkedin.png',
+    linkedin_umair: '/platforms/linkedin.png',
+    facebook: '/platforms/facebook.png',
+    threads: '/platforms/threads.png',
+    instagram: '/platforms/instagram.png',
+    upwork: '/platforms/upwork.png',
+  }
+  return map[platform]
 }

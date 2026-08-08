@@ -5,11 +5,13 @@ const META_KEY = 'bd-ext-meta'
 const DASH_URL = 'https://dashboard-sales-sand.vercel.app/'
 
 const STEPS = [
-  { id: 'fiverr', name: 'Fiverr', short: 'Fiverr', url: 'https://www.fiverr.com/' },
-  { id: 'linkedin_saad', name: 'LinkedIn (Saad)', short: 'LI Saad', url: 'https://www.linkedin.com/' },
-  { id: 'linkedin_umair', name: 'LinkedIn (Umair)', short: 'LI Umair', url: 'https://www.linkedin.com/' },
-  { id: 'facebook', name: 'Facebook', short: 'Facebook', url: 'https://www.facebook.com/' },
-  { id: 'upwork', name: 'Upwork', short: 'Upwork', url: 'https://www.upwork.com/' },
+  { id: 'fiverr', name: 'Fiverr', short: 'Fiverr', url: 'https://www.fiverr.com/', logo: 'platforms/fiverr.png' },
+  { id: 'linkedin_saad', name: 'LinkedIn (Saad)', short: 'LI Saad', url: 'https://www.linkedin.com/', logo: 'platforms/linkedin.png' },
+  { id: 'linkedin_umair', name: 'LinkedIn (Umair)', short: 'LI Umair', url: 'https://www.linkedin.com/', logo: 'platforms/linkedin.png' },
+  { id: 'facebook', name: 'Facebook', short: 'Facebook', url: 'https://www.facebook.com/', logo: 'platforms/facebook.png' },
+  { id: 'threads', name: 'Threads', short: 'Threads', url: 'https://www.threads.net/', logo: 'platforms/threads.png' },
+  { id: 'instagram', name: 'Instagram', short: 'Instagram', url: 'https://www.instagram.com/', logo: 'platforms/instagram.png' },
+  { id: 'upwork', name: 'Upwork', short: 'Upwork', url: 'https://www.upwork.com/', logo: 'platforms/upwork.png' },
   { id: 'review', name: 'Daily Review', short: 'Review', url: DASH_URL },
 ]
 
@@ -17,6 +19,8 @@ const DEFAULT_TARGETS = {
   linkedin_saad: { connections: 30, followUps: 10, comments: 5 },
   linkedin_umair: { connections: 30, followUps: 10, comments: 5 },
   facebook: { comments: 20, dms: 10, posts: 1 },
+  threads: { posts: 1, dms: 10 },
+  instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
 
@@ -122,6 +126,45 @@ function createDefaultState() {
             { id: 'comments', label: 'Meaningful Comments', target: targets.facebook.comments, completed: 0 },
             { id: 'dms', label: 'Personalized DMs', target: targets.facebook.dms, completed: 0 },
             { id: 'posts', label: 'Valuable Posts', target: targets.facebook.posts, completed: 0 },
+          ],
+          notes: '',
+          completed: false,
+        },
+        threads: {
+          id: 'threads',
+          name: 'Threads',
+          estimatedMinutes: 25,
+          purpose: 'Post once daily and stay active in DMs / replies.',
+          checklist: makeChecklist([
+            "Publish today's Threads post",
+            'Reply to DMs & messages',
+          ]),
+          counters: [
+            { id: 'posts', label: 'Daily Posts', target: targets.threads.posts, completed: 0 },
+            { id: 'dms', label: 'DMs / Replies', target: targets.threads.dms, completed: 0 },
+          ],
+          notes: '',
+          completed: false,
+        },
+        instagram: {
+          id: 'instagram',
+          name: 'Instagram',
+          estimatedMinutes: 40,
+          purpose:
+            'Find businesses (gym, med spa, law firms, HVAC, real estate, dental, healthcare) and DM them.',
+          checklist: makeChecklist([
+            'Find gyms',
+            'Find med spas',
+            'Find law firms',
+            'Find HVAC businesses',
+            'Find real estate businesses',
+            'Find dental practices',
+            'Find healthcare businesses',
+            'Send DMs to leads',
+          ]),
+          counters: [
+            { id: 'businesses', label: 'Businesses Found', target: targets.instagram.businesses, completed: 0 },
+            { id: 'dms', label: 'DMs Sent', target: targets.instagram.dms, completed: 0 },
           ],
           notes: '',
           completed: false,
@@ -232,9 +275,16 @@ function renderSteps() {
   nav.innerHTML = ''
   STEPS.forEach((step, i) => {
     const section = state.dailyProgress.platforms[step.id]
+    if (!section) return
     const { pct } = platformProgress(section)
     const btn = document.createElement('button')
-    btn.textContent = step.short
+    btn.type = 'button'
+    btn.title = step.name
+    if (step.logo) {
+      btn.innerHTML = `<img src="${step.logo}" alt="" /><span>${step.short}</span>`
+    } else {
+      btn.textContent = step.short
+    }
     if (i === stepIndex) btn.classList.add('on')
     if (pct >= 100) btn.classList.add('complete')
     btn.addEventListener('click', () => {
@@ -257,9 +307,12 @@ function renderSession() {
 function renderStepBody() {
   const step = STEPS[stepIndex]
   const section = state.dailyProgress.platforms[step.id]
+  if (!section) return
   const { pct } = platformProgress(section)
 
-  $('step-title').textContent = step.name
+  $('step-title').innerHTML = step.logo
+    ? `<img class="step-logo" src="${step.logo}" alt="" />${step.name}`
+    : step.name
   $('step-meta').textContent = `${pct}% · Step ${stepIndex + 1} of ${STEPS.length}`
   $('btn-prev').disabled = stepIndex === 0
   $('btn-next').textContent = stepIndex === STEPS.length - 1 ? 'Done' : 'Next →'
@@ -348,14 +401,33 @@ function preferState(a, b) {
   return stateScore(b) > stateScore(a) ? b : a
 }
 
-function patchFacebookTask(s) {
-  const fb = s?.dailyProgress?.platforms?.facebook
+function patchState(s) {
+  if (!s?.dailyProgress?.platforms) return s
+  const fresh = createDefaultState()
+  const platforms = s.dailyProgress.platforms
+  for (const id of Object.keys(fresh.dailyProgress.platforms)) {
+    if (!platforms[id]) {
+      platforms[id] = fresh.dailyProgress.platforms[id]
+    }
+  }
+  const fb = platforms.facebook
   if (fb && !fb.checklist.some((i) => i.id === 'c-friend-requests' || i.label.includes('friend request'))) {
     fb.checklist.push({
       id: 'c-friend-requests',
       label: 'Find & friend request leads (med spa, dental, etc.)',
       completed: false,
     })
+  }
+  if (s.settings) {
+    s.settings.dailyTargets = {
+      ...fresh.settings.dailyTargets,
+      ...s.settings.dailyTargets,
+      threads: { ...fresh.settings.dailyTargets.threads, ...(s.settings.dailyTargets?.threads || {}) },
+      instagram: {
+        ...fresh.settings.dailyTargets.instagram,
+        ...(s.settings.dailyTargets?.instagram || {}),
+      },
+    }
   }
   return s
 }
@@ -463,7 +535,7 @@ async function syncFromDashboard(preferredUser) {
   }
 
   username = bestUser || username || 'umair'
-  state = patchFacebookTask(ensureToday(best))
+  state = patchState(ensureToday(best))
   await persist('dashboard') // mark as from dashboard so we don't wipe page
   // Re-tag writer properly for storage listeners
   await chrome.storage.local.set({
@@ -489,7 +561,7 @@ async function bootWithUser(user) {
 
   // Fall back to chrome.storage, never invent empty over existing
   if (local) {
-    state = patchFacebookTask(ensureToday(local))
+    state = patchState(ensureToday(local))
     showMain()
     setSyncStatus('Loaded saved extension data. Open dashboard + Sync for latest.')
     return

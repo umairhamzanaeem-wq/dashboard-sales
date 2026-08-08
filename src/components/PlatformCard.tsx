@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Minus, Plus, Clock } from 'lucide-react'
 import type { Platform, PlatformSection } from '@/types'
 import { useApp } from '@/context/AppContext'
-import { sectionProgress, formatMinutes, percent, platformColor } from '@/lib/utils'
+import { sectionProgress, formatMinutes, percent, platformColor, platformLogo } from '@/lib/utils'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
@@ -20,6 +20,7 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
   const section = progress.platforms[platform]
   const stats = sectionProgress(section)
   const color = platformColor(platform)
+  const logo = platformLogo(platform)
 
   return (
     <motion.div
@@ -33,6 +34,9 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
         <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {logo && (
+                <img src={logo} alt="" className="h-6 w-6 rounded-md object-cover shrink-0" />
+              )}
               <h3 className="text-sm font-semibold text-foreground">{section.name}</h3>
               <CompletedBadge show={section.completed || stats.percent >= 100} />
             </div>
@@ -139,11 +143,16 @@ export function PlatformCard({ platform, delay = 0 }: PlatformCardProps) {
 export function KpiRow({ section, platform }: { section: PlatformSection; platform: Platform }) {
   const { updateCounter, toggleChecklist } = useApp()
   const color = platformColor(platform)
+  const logo = platformLogo(platform)
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+        {logo ? (
+          <img src={logo} alt="" className="h-5 w-5 rounded object-cover shrink-0" />
+        ) : (
+          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+        )}
         <h3 className="text-sm font-semibold">{section.name}</h3>
         <CompletedBadge show={section.completed} />
       </div>

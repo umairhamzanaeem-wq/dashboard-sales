@@ -8,7 +8,15 @@ import { ProgressRing } from '@/components/shared'
 import { Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const PLATFORMS: Platform[] = ['fiverr', 'linkedin_saad', 'linkedin_umair', 'facebook', 'upwork']
+const PLATFORMS: Platform[] = [
+  'fiverr',
+  'linkedin_saad',
+  'linkedin_umair',
+  'facebook',
+  'threads',
+  'instagram',
+  'upwork',
+]
 
 export function PlannerPage() {
   const { overall, progress, dispatch } = useApp()

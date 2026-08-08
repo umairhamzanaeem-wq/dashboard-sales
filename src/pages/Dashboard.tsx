@@ -14,13 +14,22 @@ import { useApp } from '@/context/AppContext'
 import { PageHeader, StatCard, ProgressRing } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatTime, sectionProgress, platformColor } from '@/lib/utils'
+import { formatTime, sectionProgress, platformColor, platformLogo } from '@/lib/utils'
 import { DaySessionCard } from '@/components/DaySessionCard'
 import { DailyTimeline } from '@/components/Timeline'
 import type { Platform } from '@/types'
 import { motion } from 'framer-motion'
 
-const PLATFORMS: Platform[] = ['fiverr', 'linkedin_saad', 'linkedin_umair', 'facebook', 'upwork', 'review']
+const PLATFORMS: Platform[] = [
+  'fiverr',
+  'linkedin_saad',
+  'linkedin_umair',
+  'facebook',
+  'threads',
+  'instagram',
+  'upwork',
+  'review',
+]
 
 export function DashboardPage() {
   const { overall, score, settings, todayStats, progress } = useApp()
@@ -126,11 +135,16 @@ export function DashboardPage() {
               const section = progress.platforms[id]
               const stats = sectionProgress(section)
               const color = platformColor(id)
+              const logo = platformLogo(id)
               return (
                 <div key={id} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      {logo ? (
+                        <img src={logo} alt="" className="h-4 w-4 rounded object-cover" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      )}
                       {section.name}
                     </span>
                     <span className="text-muted-foreground tabular-nums">{stats.percent}%</span>

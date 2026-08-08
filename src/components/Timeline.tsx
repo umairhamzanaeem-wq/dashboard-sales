@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Play, Pause, Check, SkipForward, Clock } from 'lucide-react'
 import type { Platform, TimelineBlock } from '@/types'
 import { useApp } from '@/context/AppContext'
-import { formatTime, formatTime12, formatMinutes, platformColor, percent } from '@/lib/utils'
+import { formatTime, formatTime12, formatMinutes, platformColor, platformLogo, percent } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
@@ -16,9 +16,10 @@ const statusVariant: Record<string, 'muted' | 'default' | 'warning' | 'success' 
   skipped: 'outline',
 }
 
-export function TimelineCard({ block, index }: { block: TimelineBlock; index: number }) {
+export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; index: number; isLast?: boolean }) {
   const { timelineAction } = useApp()
   const color = platformColor(block.id)
+  const logo = platformLogo(block.id)
   const progressPct = percent(block.elapsedSeconds, block.estimatedMinutes * 60)
   const isActive = block.status === 'active'
 
@@ -33,13 +34,17 @@ export function TimelineCard({ block, index }: { block: TimelineBlock; index: nu
       <div className="flex flex-col items-center">
         <div
           className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 z-10',
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 z-10 overflow-hidden',
             isActive ? 'border-accent bg-accent/20 animate-pulse' : 'border-border bg-card'
           )}
         >
-          <Clock className="h-4 w-4" style={{ color: isActive ? '#22c55e' : color }} />
+          {logo ? (
+            <img src={logo} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Clock className="h-4 w-4" style={{ color: isActive ? '#22c55e' : color }} />
+          )}
         </div>
-        {index < 5 && <div className="w-px flex-1 bg-border min-h-[24px]" />}
+        {!isLast && <div className="w-px flex-1 bg-border min-h-[24px]" />}
       </div>
 
       <div
@@ -105,7 +110,12 @@ export function DailyTimeline() {
         <p className="text-sm text-muted-foreground">Your evening business development schedule</p>
       </div>
       {progress.timeline.map((block, i) => (
-        <TimelineCard key={block.id} block={block} index={i} />
+        <TimelineCard
+          key={block.id}
+          block={block}
+          index={i}
+          isLast={i === progress.timeline.length - 1}
+        />
       ))}
     </div>
   )

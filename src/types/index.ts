@@ -3,6 +3,8 @@ export type Platform =
   | 'linkedin_saad'
   | 'linkedin_umair'
   | 'facebook'
+  | 'threads'
+  | 'instagram'
   | 'upwork'
   | 'review'
 
@@ -77,6 +79,14 @@ export interface DailyTargets {
     comments: number
     dms: number
     posts: number
+  }
+  threads: {
+    posts: number
+    dms: number
+  }
+  instagram: {
+    businesses: number
+    dms: number
   }
   upwork: {
     jobsReviewed: number

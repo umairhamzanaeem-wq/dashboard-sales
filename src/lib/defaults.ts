@@ -16,6 +16,8 @@ export const DEFAULT_TARGETS: DailyTargets = {
   linkedin_saad: { connections: 30, followUps: 10, comments: 5 },
   linkedin_umair: { connections: 30, followUps: 10, comments: 5 },
   facebook: { comments: 20, dms: 10, posts: 1 },
+  threads: { posts: 1, dms: 10 },
+  instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
 
@@ -25,8 +27,10 @@ export const DEFAULT_TIMELINE: TimelineSettings = {
     { id: 'linkedin_saad', name: 'LinkedIn (Saad)', startTime: '21:20', estimatedMinutes: 80 },
     { id: 'linkedin_umair', name: 'LinkedIn (Umair)', startTime: '22:40', estimatedMinutes: 80 },
     { id: 'facebook', name: 'Facebook', startTime: '00:00', estimatedMinutes: 60 },
-    { id: 'upwork', name: 'Upwork', startTime: '01:00', estimatedMinutes: 75 },
-    { id: 'review', name: 'Daily Review & Planning', startTime: '02:15', estimatedMinutes: 45 },
+    { id: 'threads', name: 'Threads', startTime: '01:00', estimatedMinutes: 25 },
+    { id: 'instagram', name: 'Instagram', startTime: '01:25', estimatedMinutes: 40 },
+    { id: 'upwork', name: 'Upwork', startTime: '02:05', estimatedMinutes: 75 },
+    { id: 'review', name: 'Daily Review & Planning', startTime: '03:20', estimatedMinutes: 45 },
   ],
 }
 
@@ -35,8 +39,20 @@ export const SCHEDULE_MESSAGES: Record<Platform, string> = {
   linkedin_saad: 'Start LinkedIn (Saad).',
   linkedin_umair: 'Switch to LinkedIn (Umair).',
   facebook: 'Facebook Outreach Time.',
+  threads: 'Post on Threads & reply to DMs.',
+  instagram: 'Instagram lead outreach time.',
   upwork: 'Search Upwork Jobs.',
   review: "Finish today's review.",
+}
+
+export const PLATFORM_LOGOS: Partial<Record<Platform, string>> = {
+  fiverr: '/platforms/fiverr.png',
+  linkedin_saad: '/platforms/linkedin.png',
+  linkedin_umair: '/platforms/linkedin.png',
+  facebook: '/platforms/facebook.png',
+  threads: '/platforms/threads.png',
+  instagram: '/platforms/instagram.png',
+  upwork: '/platforms/upwork.png',
 }
 
 function makeChecklist(items: string[]) {
@@ -47,7 +63,64 @@ function makeChecklist(items: string[]) {
   }))
 }
 
+export function createThreadsSection(targets: DailyTargets): PlatformSection {
+  return {
+    id: 'threads',
+    name: 'Threads',
+    estimatedMinutes: 25,
+    purpose: 'Post once daily and stay active in DMs / replies.',
+    checklist: makeChecklist([
+      'Publish today’s Threads post',
+      'Reply to DMs & messages',
+    ]),
+    counters: [
+      { id: 'posts', label: 'Daily Posts', target: targets.threads?.posts ?? 1, completed: 0 },
+      { id: 'dms', label: 'DMs / Replies', target: targets.threads?.dms ?? 10, completed: 0 },
+    ],
+    notes: '',
+    completed: false,
+  }
+}
+
+export function createInstagramSection(targets: DailyTargets): PlatformSection {
+  return {
+    id: 'instagram',
+    name: 'Instagram',
+    estimatedMinutes: 40,
+    purpose:
+      'Find businesses (gym, med spa, law firms, HVAC, real estate, dental, healthcare) and DM them.',
+    checklist: makeChecklist([
+      'Find gyms',
+      'Find med spas',
+      'Find law firms',
+      'Find HVAC businesses',
+      'Find real estate businesses',
+      'Find dental practices',
+      'Find healthcare businesses',
+      'Send DMs to leads',
+    ]),
+    counters: [
+      {
+        id: 'businesses',
+        label: 'Businesses Found',
+        target: targets.instagram?.businesses ?? 15,
+        completed: 0,
+      },
+      { id: 'dms', label: 'DMs Sent', target: targets.instagram?.dms ?? 15, completed: 0 },
+    ],
+    notes: '',
+    completed: false,
+  }
+}
+
 export function createPlatformSections(targets: DailyTargets): Record<Platform, PlatformSection> {
+  const t: DailyTargets = {
+    ...DEFAULT_TARGETS,
+    ...targets,
+    threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
+    instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
+  }
+
   return {
     fiverr: {
       id: 'fiverr',
@@ -71,9 +144,9 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
       estimatedMinutes: 80,
       checklist: makeChecklist(['Reply to every unread message']),
       counters: [
-        { id: 'connections', label: 'Connection Requests', target: targets.linkedin_saad.connections, completed: 0 },
-        { id: 'followups', label: 'Follow-up Messages', target: targets.linkedin_saad.followUps, completed: 0 },
-        { id: 'comments', label: 'Meaningful Comments', target: targets.linkedin_saad.comments, completed: 0 },
+        { id: 'connections', label: 'Connection Requests', target: t.linkedin_saad.connections, completed: 0 },
+        { id: 'followups', label: 'Follow-up Messages', target: t.linkedin_saad.followUps, completed: 0 },
+        { id: 'comments', label: 'Meaningful Comments', target: t.linkedin_saad.comments, completed: 0 },
       ],
       notes: '',
       completed: false,
@@ -84,9 +157,9 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
       estimatedMinutes: 80,
       checklist: makeChecklist(['Reply to every unread message']),
       counters: [
-        { id: 'connections', label: 'Connection Requests', target: targets.linkedin_umair.connections, completed: 0 },
-        { id: 'followups', label: 'Follow-up Messages', target: targets.linkedin_umair.followUps, completed: 0 },
-        { id: 'comments', label: 'Meaningful Comments', target: targets.linkedin_umair.comments, completed: 0 },
+        { id: 'connections', label: 'Connection Requests', target: t.linkedin_umair.connections, completed: 0 },
+        { id: 'followups', label: 'Follow-up Messages', target: t.linkedin_umair.followUps, completed: 0 },
+        { id: 'comments', label: 'Meaningful Comments', target: t.linkedin_umair.comments, completed: 0 },
       ],
       notes: '',
       completed: false,
@@ -105,13 +178,15 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
         'Find & friend request leads (med spa, dental, etc.)',
       ]),
       counters: [
-        { id: 'comments', label: 'Meaningful Comments', target: targets.facebook.comments, completed: 0 },
-        { id: 'dms', label: 'Personalized DMs', target: targets.facebook.dms, completed: 0 },
-        { id: 'posts', label: 'Valuable Posts', target: targets.facebook.posts, completed: 0 },
+        { id: 'comments', label: 'Meaningful Comments', target: t.facebook.comments, completed: 0 },
+        { id: 'dms', label: 'Personalized DMs', target: t.facebook.dms, completed: 0 },
+        { id: 'posts', label: 'Valuable Posts', target: t.facebook.posts, completed: 0 },
       ],
       notes: '',
       completed: false,
     },
+    threads: createThreadsSection(t),
+    instagram: createInstagramSection(t),
     upwork: {
       id: 'upwork',
       name: 'Upwork',
@@ -125,9 +200,9 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
         'Reply to Invitations',
       ]),
       counters: [
-        { id: 'jobs_reviewed', label: 'Jobs Reviewed', target: targets.upwork.jobsReviewed, completed: 0 },
+        { id: 'jobs_reviewed', label: 'Jobs Reviewed', target: t.upwork.jobsReviewed, completed: 0 },
         { id: 'jobs_shortlisted', label: 'Jobs Shortlisted', target: 6, completed: 0 },
-        { id: 'proposals', label: 'Personalized Proposals', target: targets.upwork.proposals, completed: 0 },
+        { id: 'proposals', label: 'Personalized Proposals', target: t.upwork.proposals, completed: 0 },
         { id: 'invitations', label: 'Invitations Replied', target: 3, completed: 0 },
       ],
       notes: '',
@@ -138,9 +213,9 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
       name: 'Daily Review & Planning',
       estimatedMinutes: 45,
       checklist: makeChecklist([
-        'Review today\'s KPIs',
+        "Review today's KPIs",
         'Log revenue if any',
-        'Plan tomorrow\'s priorities',
+        "Plan tomorrow's priorities",
         'Update notes',
       ]),
       counters: [],
@@ -186,8 +261,10 @@ export function createDefaultSettings(): AppSettings {
       linkedin_saad: '21:20',
       linkedin_umair: '22:40',
       facebook: '00:00',
-      upwork: '01:00',
-      review: '02:15',
+      threads: '01:00',
+      instagram: '01:25',
+      upwork: '02:05',
+      review: '03:20',
     },
     dailyTargets: { ...DEFAULT_TARGETS },
     timeline: structuredClone(DEFAULT_TIMELINE),

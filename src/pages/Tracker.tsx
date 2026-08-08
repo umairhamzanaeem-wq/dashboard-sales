@@ -9,7 +9,15 @@ import { Textarea } from '@/components/ui/input'
 import { formatTime } from '@/lib/utils'
 import { Flame, CheckCircle2, ListTodo, Clock, Trophy } from 'lucide-react'
 
-const PLATFORMS: Platform[] = ['fiverr', 'linkedin_saad', 'linkedin_umair', 'facebook', 'upwork']
+const PLATFORMS: Platform[] = [
+  'fiverr',
+  'linkedin_saad',
+  'linkedin_umair',
+  'facebook',
+  'threads',
+  'instagram',
+  'upwork',
+]
 
 export function TrackerPage() {
   const { progress, overall, score, settings, dispatch } = useApp()

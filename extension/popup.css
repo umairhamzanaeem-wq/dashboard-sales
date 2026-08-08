@@ -114,6 +114,15 @@ body {
   padding: 4px 8px;
   font-size: 10px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.steps button img {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  object-fit: cover;
 }
 .steps button.on { background: #172554; color: #93c5fd; border-color: #1e3a8a; }
 .steps button.complete { color: var(--accent); border-color: #166534; }
@@ -124,7 +133,19 @@ body {
   gap: 8px;
   align-items: flex-start;
 }
-.step-head h2 { margin: 0; font-size: 15px; }
+.step-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.step-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+}
 .step-nav { display: flex; gap: 4px; }
 
 .block { display: flex; flex-direction: column; gap: 6px; }
