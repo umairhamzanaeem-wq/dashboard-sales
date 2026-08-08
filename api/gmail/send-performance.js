@@ -21,8 +21,6 @@ export default async function handler(req, res) {
       productivityScore: body.productivityScore ?? 0,
       instagramBusinesses: body.instagramBusinesses ?? 0,
       instagramDms: body.instagramDms ?? 0,
-      instagramReplies: body.instagramReplies ?? 'Not tracked',
-      instagramInterestedLeads: body.instagramInterestedLeads ?? 'Not tracked',
       threadsPosts: body.threadsPosts ?? 0,
       threadsDms: body.threadsDms ?? 0,
       linkedinConnections: body.linkedinConnections ?? 0,
@@ -33,12 +31,10 @@ export default async function handler(req, res) {
       facebookPosts: body.facebookPosts ?? 0,
       upworkJobsReviewed: body.upworkJobsReviewed ?? 0,
       upworkProposals: body.upworkProposals ?? 0,
-      emailOutreach: body.emailOutreach ?? 'Not tracked',
       leadsGenerated: body.leadsGenerated ?? 0,
-      meetingsBooked: body.meetingsBooked ?? 'Not tracked',
-      dealsWon: body.dealsWon ?? 'Not tracked',
       revenueGenerated: body.revenueGenerated ?? 0,
-      notes: body.notes,
+      notes: body.notes || '',
+      platformNotes: Array.isArray(body.platformNotes) ? body.platformNotes : [],
     })
 
     await sendGmailMessage(bundle.accessToken, bundle.email, emailPayload.subject, {

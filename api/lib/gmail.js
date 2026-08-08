@@ -173,21 +173,42 @@ function buildPerformanceHtml(input) {
   const pct = Number(input.performancePercent ?? 0)
   const score = Number(input.productivityScore ?? 0)
 
-  const notesBlock = input.notes?.trim()
-    ? `
+  const notesBlock = (() => {
+    const daily = input.notes?.trim() || ''
+    const platformNotes = Array.isArray(input.platformNotes)
+      ? input.platformNotes.filter((n) => n?.name && n?.notes?.trim())
+      : []
+    if (!daily && platformNotes.length === 0) return ''
+
+    const platformHtml = platformNotes
+      .map(
+        (n) => `
+          <div style="margin-top:10px;">
+            <div style="font-size:12px;font-weight:700;color:#111111;">${escapeHtml(n.name)}</div>
+            <div style="font-size:14px;color:#555555;line-height:1.6;white-space:pre-wrap;margin-top:2px;">${escapeHtml(n.notes.trim())}</div>
+          </div>`
+      )
+      .join('')
+
+    return `
       <tr>
         <td style="padding:8px 0 0 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border:1px solid #E5E5E5;border-radius:14px;">
             <tr>
               <td style="padding:18px 20px;">
                 <div style="font-size:13px;font-weight:700;color:#111111;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Notes</div>
-                <div style="font-size:14px;color:#555555;line-height:1.6;white-space:pre-wrap;">${escapeHtml(input.notes.trim())}</div>
+                ${
+                  daily
+                    ? `<div style="font-size:14px;color:#555555;line-height:1.6;white-space:pre-wrap;">${escapeHtml(daily)}</div>`
+                    : ''
+                }
+                ${platformHtml}
               </td>
             </tr>
           </table>
         </td>
       </tr>`
-    : ''
+  })()
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -286,9 +307,7 @@ function buildPerformanceHtml(input) {
                   color: '#E1306C',
                   rows:
                     metricRow('Businesses found', input.instagramBusinesses) +
-                    metricRow('DMs sent', input.instagramDms) +
-                    metricRow('Replies', input.instagramReplies) +
-                    metricRow('Interested leads', input.instagramInterestedLeads),
+                    metricRow('DMs sent', input.instagramDms),
                 })}
                 ${platformCard({
                   name: 'Threads',
@@ -322,18 +341,8 @@ function buildPerformanceHtml(input) {
                   color: '#14A800',
                   rows:
                     metricRow('Jobs reviewed', input.upworkJobsReviewed) +
-                    metricRow('Proposals sent', input.upworkProposals),
-                })}
-                ${platformCard({
-                  name: 'Fiverr & Sales',
-                  logo: logos.fiverr,
-                  color: '#1DBF73',
-                  rows:
-                    metricRow('Email outreach', input.emailOutreach) +
-                    metricRow('Leads generated', input.leadsGenerated) +
-                    metricRow('Meetings booked', input.meetingsBooked) +
-                    metricRow('Deals won', input.dealsWon) +
-                    metricRow('Revenue generated', revenue),
+                    metricRow('Proposals sent', input.upworkProposals) +
+                    metricRow('Leads generated (total)', input.leadsGenerated ?? 0),
                 })}
                 ${notesBlock}
               </table>
@@ -378,12 +387,11 @@ export function sendDailyPerformanceEmail(input) {
     `Total Working Time: ${input.totalWorkingTime}`,
     `Overall Daily Performance: ${input.performancePercent}%`,
     `Productivity Score: ${input.productivityScore}`,
+    `Revenue: $${Number(input.revenueGenerated || 0).toFixed(2)}`,
     '',
     '— Instagram —',
     `Businesses found: ${input.instagramBusinesses}`,
     `DMs sent: ${input.instagramDms}`,
-    `Replies: ${input.instagramReplies}`,
-    `Interested leads: ${input.instagramInterestedLeads}`,
     '',
     '— Threads —',
     `Posts: ${input.threadsPosts}`,
@@ -399,18 +407,25 @@ export function sendDailyPerformanceEmail(input) {
     `DMs: ${input.facebookDms}`,
     `Posts: ${input.facebookPosts}`,
     '',
-    '— Upwork / Sales —',
+    '— Upwork —',
     `Jobs reviewed: ${input.upworkJobsReviewed}`,
     `Proposals sent: ${input.upworkProposals}`,
-    `Email outreach: ${input.emailOutreach}`,
-    `Leads generated: ${input.leadsGenerated}`,
-    `Meetings booked: ${input.meetingsBooked}`,
-    `Deals won: ${input.dealsWon}`,
-    `Revenue generated: $${Number(input.revenueGenerated || 0).toFixed(2)}`,
+    '',
+    '— Summary —',
+    `Leads generated: ${input.leadsGenerated ?? 0}`,
   ]
 
   if (input.notes?.trim()) {
     lines.push('', 'Notes:', input.notes.trim())
+  }
+
+  if (Array.isArray(input.platformNotes) && input.platformNotes.length) {
+    lines.push('', 'Platform notes:')
+    for (const item of input.platformNotes) {
+      if (item?.name && item?.notes?.trim()) {
+        lines.push(`- ${item.name}: ${item.notes.trim()}`)
+      }
+    }
   }
 
   lines.push('', '— Sent automatically from CRM Dashboard')

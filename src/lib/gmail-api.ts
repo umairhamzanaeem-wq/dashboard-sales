@@ -145,8 +145,6 @@ export async function sendDailyPerformanceEmailRequest(input: {
       productivityScore: productivityScore(progress),
       instagramBusinesses,
       instagramDms,
-      instagramReplies: 'Not tracked',
-      instagramInterestedLeads: 'Not tracked',
       threadsPosts: metric(progress, 'threads', 'posts'),
       threadsDms: metric(progress, 'threads', 'dms'),
       linkedinConnections:
@@ -163,12 +161,12 @@ export async function sendDailyPerformanceEmailRequest(input: {
       facebookPosts: metric(progress, 'facebook', 'posts'),
       upworkJobsReviewed: metric(progress, 'upwork', 'jobs_reviewed'),
       upworkProposals: metric(progress, 'upwork', 'proposals'),
-      emailOutreach: 'Not tracked',
       leadsGenerated,
-      meetingsBooked: 'Not tracked',
-      dealsWon: 'Not tracked',
       revenueGenerated: dayRevenue,
-      notes: progress.dailyNotes,
+      notes: progress.dailyNotes?.trim() || '',
+      platformNotes: Object.values(progress.platforms)
+        .filter((p) => p.notes?.trim())
+        .map((p) => ({ name: p.name, notes: p.notes.trim() })),
     }),
   })
   return parseJson(res) as Promise<{ ok: boolean; message: string; to?: string }>
