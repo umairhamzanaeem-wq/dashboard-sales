@@ -41,7 +41,10 @@ export default async function handler(req, res) {
       notes: body.notes,
     })
 
-    await sendGmailMessage(bundle.accessToken, bundle.email, emailPayload.subject, emailPayload.body)
+    await sendGmailMessage(bundle.accessToken, bundle.email, emailPayload.subject, {
+      text: emailPayload.text || emailPayload.body,
+      html: emailPayload.html,
+    })
 
     return json(res, 200, {
       ok: true,
