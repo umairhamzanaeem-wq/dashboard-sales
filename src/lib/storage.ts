@@ -5,6 +5,7 @@ import {
   DEFAULT_TARGETS,
   DEFAULT_TIMELINE,
 } from './defaults'
+import { normalizeTheme } from './theme'
 
 export function storageKeyForUser(username?: string | null): string {
   const user = username?.trim().toLowerCase()
@@ -109,6 +110,7 @@ export function normalizeState(parsed: AppState): AppState {
   const settings = {
     ...defaults.settings,
     ...parsed.settings,
+    theme: normalizeTheme(parsed.settings?.theme),
     dailyTargets: {
       ...DEFAULT_TARGETS,
       ...parsed.settings?.dailyTargets,

@@ -12,7 +12,7 @@ export type TimelineStatus = 'pending' | 'active' | 'paused' | 'completed' | 'sk
 
 export type RevenuePlatform = 'Fiverr' | 'Upwork' | 'Direct Clients' | 'Agency' | 'Referral'
 
-export type ThemeMode = 'dark' | 'light'
+export type ThemeMode = 'ignite-dark' | 'ignite-light' | 'classic-dark' | 'classic-light'
 
 export interface ChecklistItem {
   id: string

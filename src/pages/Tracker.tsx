@@ -7,6 +7,7 @@ import { KpiRow } from '@/components/PlatformCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/input'
 import { formatTime } from '@/lib/utils'
+import { themeAccent } from '@/lib/theme'
 import { Flame, CheckCircle2, ListTodo, Clock, Trophy } from 'lucide-react'
 
 const PLATFORMS: Platform[] = [
@@ -22,6 +23,7 @@ const PLATFORMS: Platform[] = [
 export function TrackerPage() {
   const { progress, overall, score, settings, dispatch } = useApp()
   const complete = overall.percent >= 100
+  const accents = themeAccent(settings.theme)
 
   return (
     <div className="space-y-8">
@@ -59,7 +61,7 @@ export function TrackerPage() {
         )}
 
         <div className="flex flex-col sm:flex-row items-center gap-8">
-          <ProgressRing percent={overall.percent} size={140} strokeWidth={10} color={complete ? '#16A34A' : '#E60000'}>
+          <ProgressRing percent={overall.percent} size={140} strokeWidth={10} color={complete ? accents.success : accents.primary}>
             <div className="text-center">
               <p className="text-3xl font-bold tabular-nums">{overall.percent}%</p>
               <p className="text-[10px] text-muted-foreground">Overall</p>
@@ -67,15 +69,15 @@ export function TrackerPage() {
           </ProgressRing>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 flex-1 w-full">
-            <ScoreItem icon={Trophy} label="Productivity Score" value={String(score)} color="#F59E0B" />
-            <ScoreItem icon={CheckCircle2} label="Tasks Completed" value={String(overall.tasksCompleted)} color="#16A34A" />
+            <ScoreItem icon={Trophy} label="Productivity Score" value={String(score)} color={accents.warning} />
+            <ScoreItem icon={CheckCircle2} label="Tasks Completed" value={String(overall.tasksCompleted)} color={accents.success} />
             <ScoreItem icon={ListTodo} label="Remaining Tasks" value={String(overall.remaining)} color="#A3A3A3" />
             <ScoreItem icon={Flame} label="Current Streak" value={`${settings.streak} days`} color="#F97316" />
             <ScoreItem
               icon={Clock}
               label="Time Worked"
               value={formatTime(progress.totalTimeWorkedSeconds)}
-              color="#E60000"
+              color={accents.primary}
             />
             <div className="rounded-xl bg-muted/50 border border-border p-3 flex items-center justify-center">
               <CompletedBadge show={complete} />

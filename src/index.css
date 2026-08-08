@@ -4,7 +4,7 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
-  /* Dark Mode (default) — predominantly black */
+  /* Defaults = Ignite Dark */
   --color-background: #000000;
   --color-foreground: #ffffff;
   --color-card: #0d0d0d;
@@ -15,7 +15,6 @@
   --color-border-subtle: #1a1a1a;
   --color-sidebar: #0d0d0d;
 
-  /* Brand red */
   --color-primary: #e60000;
   --color-primary-foreground: #ffffff;
   --color-primary-muted: #990000;
@@ -23,19 +22,16 @@
   --color-brand-bright: #ff1a1a;
   --color-brand-dark: #990000;
 
-  /* Accent = brand red for CTAs / active / progress */
   --color-accent: #e60000;
   --color-accent-muted: #990000;
   --color-accent-foreground: #ffffff;
 
-  /* Semantic */
   --color-success: #22c55e;
   --color-success-muted: #14532d;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-ring: #e60000;
 
-  /* Legacy chart helpers (kept for compatibility) */
   --color-purple: #a855f7;
   --color-cyan: #06b6d4;
   --color-orange: #f97316;
@@ -69,8 +65,36 @@ body {
   min-height: 100vh;
 }
 
-/* Light Mode — predominantly white */
-html.light {
+/* ── Ignite Dark (brand) ───────────────────────── */
+html[data-theme="ignite-dark"] {
+  color-scheme: dark;
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  --color-card: #0d0d0d;
+  --color-card-hover: #151515;
+  --color-muted: #151515;
+  --color-muted-foreground: #a3a3a3;
+  --color-border: #262626;
+  --color-border-subtle: #1a1a1a;
+  --color-sidebar: #0d0d0d;
+  --color-primary: #e60000;
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: #990000;
+  --color-brand: #e60000;
+  --color-brand-bright: #ff1a1a;
+  --color-brand-dark: #990000;
+  --color-accent: #e60000;
+  --color-accent-muted: #990000;
+  --color-accent-foreground: #ffffff;
+  --color-success: #22c55e;
+  --color-success-muted: #14532d;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-ring: #e60000;
+}
+
+/* ── Ignite Light (brand) ──────────────────────── */
+html[data-theme="ignite-light"] {
   color-scheme: light;
   --color-background: #ffffff;
   --color-foreground: #111111;
@@ -81,18 +105,15 @@ html.light {
   --color-border: #e5e5e5;
   --color-border-subtle: #f1f1f1;
   --color-sidebar: #ffffff;
-
   --color-primary: #e60000;
   --color-primary-foreground: #ffffff;
   --color-primary-muted: #b30000;
   --color-brand: #e60000;
   --color-brand-bright: #ff1a1a;
   --color-brand-dark: #b30000;
-
   --color-accent: #e60000;
   --color-accent-muted: #b30000;
   --color-accent-foreground: #ffffff;
-
   --color-success: #16a34a;
   --color-success-muted: #dcfce7;
   --color-warning: #f59e0b;
@@ -100,9 +121,65 @@ html.light {
   --color-ring: #e60000;
 }
 
-html.light body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+/* ── Classic Dark (previous palette) ───────────── */
+html[data-theme="classic-dark"] {
+  color-scheme: dark;
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  --color-card: #111113;
+  --color-card-hover: #18181b;
+  --color-muted: #18181b;
+  --color-muted-foreground: #a1a1aa;
+  --color-border: #27272a;
+  --color-border-subtle: #1f1f23;
+  --color-sidebar: #0c0c0e;
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: #1e3a5f;
+  --color-brand: #3b82f6;
+  --color-brand-bright: #60a5fa;
+  --color-brand-dark: #1d4ed8;
+  --color-accent: #22c55e;
+  --color-accent-muted: #166534;
+  --color-accent-foreground: #052e16;
+  --color-success: #22c55e;
+  --color-success-muted: #14532d;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-ring: #3b82f6;
+}
+
+/* ── Classic Light (previous palette) ──────────── */
+html[data-theme="classic-light"] {
+  color-scheme: light;
+  --color-background: #fafafa;
+  --color-foreground: #09090b;
+  --color-card: #ffffff;
+  --color-card-hover: #f4f4f5;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-subtle: #f4f4f5;
+  --color-sidebar: #ffffff;
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: #dbeafe;
+  --color-brand: #3b82f6;
+  --color-brand-bright: #60a5fa;
+  --color-brand-dark: #1d4ed8;
+  --color-accent: #16a34a;
+  --color-accent-muted: #166534;
+  --color-accent-foreground: #ffffff;
+  --color-success: #16a34a;
+  --color-success-muted: #dcfce7;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-ring: #3b82f6;
+}
+
+/* Legacy class fallbacks (login / old toggles) */
+html.light:not([data-theme]) {
+  color-scheme: light;
 }
 
 ::-webkit-scrollbar {
@@ -119,7 +196,9 @@ html.light body {
   border-radius: 3px;
 }
 
-html.light ::-webkit-scrollbar-thumb {
+html.light ::-webkit-scrollbar-thumb,
+html[data-theme="ignite-light"] ::-webkit-scrollbar-thumb,
+html[data-theme="classic-light"] ::-webkit-scrollbar-thumb {
   background: #d4d4d4;
 }
 
@@ -127,7 +206,9 @@ html.light ::-webkit-scrollbar-thumb {
   background: #525252;
 }
 
-html.light ::-webkit-scrollbar-thumb:hover {
+html.light ::-webkit-scrollbar-thumb:hover,
+html[data-theme="ignite-light"] ::-webkit-scrollbar-thumb:hover,
+html[data-theme="classic-light"] ::-webkit-scrollbar-thumb:hover {
   background: #a3a3a3;
 }
 
@@ -149,14 +230,7 @@ html.light ::-webkit-scrollbar-thumb:hover {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #e60000 0%, #ff1a1a 45%, #ffffff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-html.light .gradient-text {
-  background: linear-gradient(135deg, #b30000 0%, #e60000 50%, #111111 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-brand-bright) 50%, var(--color-foreground) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -168,7 +242,6 @@ html.light .gradient-text {
   border: 1px solid var(--color-border);
 }
 
-/* Brand helpers */
 .brand-glow {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent),
     0 8px 24px color-mix(in srgb, var(--color-primary) 18%, transparent);

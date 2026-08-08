@@ -21,6 +21,7 @@ import type {
 } from '@/types'
 import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
 import { loadState, saveState, clearState, importState, normalizeState } from '@/lib/storage'
+import { applyTheme, themeAccent } from '@/lib/theme'
 import { useAuth } from '@/context/AuthContext'
 import {
   generateId,
@@ -561,9 +562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Theme
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', state.settings.theme === 'dark')
-    document.documentElement.classList.toggle('light', state.settings.theme === 'light')
-    localStorage.setItem('bd-theme-pref', state.settings.theme)
+    applyTheme(state.settings.theme)
   }, [state.settings.theme])
 
   // Timeline tick
@@ -584,7 +583,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         particleCount: 150,
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#E60000', '#FF1A1A', '#B30000', '#F59E0B'],
+        colors: (() => {
+          const a = themeAccent(state.settings.theme)
+          return [a.primary, a.secondary, a.success, a.warning]
+        })(),
       })
       dispatch({ type: 'SET_CONFETTI_SHOWN' })
       dispatch({ type: 'UPDATE_STREAK' })

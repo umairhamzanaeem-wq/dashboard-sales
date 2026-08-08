@@ -182,7 +182,7 @@ export function HistoryPage() {
                     className="h-1"
                     style={{
                       width: `${h.completionPercent}%`,
-                      background: h.completionPercent >= 100 ? '#16A34A' : '#E60000',
+                      background: h.completionPercent >= 100 ? 'var(--color-success)' : 'var(--color-primary)',
                     }}
                   />
                   <CardContent className="p-4">

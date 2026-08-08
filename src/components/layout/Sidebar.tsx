@@ -96,7 +96,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <div className="border-t border-border p-4 space-y-3">
         <div className="rounded-xl bg-muted/60 border border-border p-4 flex items-center gap-3">
-          <ProgressRing percent={overall.percent} size={48} strokeWidth={4} color="#E60000">
+          <ProgressRing percent={overall.percent} size={48} strokeWidth={4}>
             <span className="text-[10px] font-semibold tabular-nums">{overall.percent}%</span>
           </ProgressRing>
           <div className="min-w-0">

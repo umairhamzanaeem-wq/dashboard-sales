@@ -254,7 +254,7 @@ export function createDailyProgress(targets: DailyTargets, timeline: TimelineSet
 
 export function createDefaultSettings(): AppSettings {
   return {
-    theme: 'dark',
+    theme: 'ignite-dark',
     notificationsEnabled: true,
     reminderTimes: {
       fiverr: '21:00',

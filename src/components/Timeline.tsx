@@ -41,7 +41,7 @@ export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; i
           {logo ? (
             <img src={logo} alt="" className="h-full w-full object-cover" />
           ) : (
-            <Clock className="h-4 w-4" style={{ color: isActive ? '#E60000' : color }} />
+            <Clock className="h-4 w-4" style={{ color: isActive ? 'var(--color-primary)' : color }} />
           )}
         </div>
         {!isLast && <div className="w-px flex-1 bg-border min-h-[24px]" />}
@@ -64,7 +64,7 @@ export function TimelineCard({ block, index, isLast }: { block: TimelineBlock; i
             </p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-mono font-semibold tabular-nums" style={{ color: isActive ? '#E60000' : undefined }}>
+            <p className="text-lg font-mono font-semibold tabular-nums" style={{ color: isActive ? 'var(--color-primary)' : undefined }}>
               {formatTime(block.elapsedSeconds)}
             </p>
             <p className="text-[10px] text-muted-foreground">Live Timer</p>

@@ -140,43 +140,48 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Dark Mode</p>
-              <p className="text-xs text-muted-foreground">
-                Toggle between white light mode and black dark mode
-              </p>
-            </div>
-            <Switch
-              checked={settings.theme === 'dark'}
-              onCheckedChange={(c) => updateSettings({ theme: c ? 'dark' : 'light' })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => updateSettings({ theme: 'light' })}
-              className={`rounded-xl border p-4 text-left transition-colors cursor-pointer ${
-                settings.theme === 'light'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border hover:bg-muted'
-              }`}
-            >
-              <p className="text-sm font-medium">Light</p>
-              <p className="text-[11px] text-muted-foreground mt-1">White surfaces, red accents</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => updateSettings({ theme: 'dark' })}
-              className={`rounded-xl border p-4 text-left transition-colors cursor-pointer ${
-                settings.theme === 'dark'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border hover:bg-muted'
-              }`}
-            >
-              <p className="text-sm font-medium">Dark</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Black surfaces, red accents</p>
-            </button>
+          <p className="text-xs text-muted-foreground">
+            Choose Ignite (brand red) or Classic (previous green/blue) in dark or light.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(
+              [
+                {
+                  id: 'ignite-dark' as const,
+                  label: 'Ignite Dark',
+                  description: 'Black + brand red',
+                },
+                {
+                  id: 'ignite-light' as const,
+                  label: 'Ignite Light',
+                  description: 'White + brand red',
+                },
+                {
+                  id: 'classic-dark' as const,
+                  label: 'Classic Dark',
+                  description: 'Previous zinc dark',
+                },
+                {
+                  id: 'classic-light' as const,
+                  label: 'Classic Light',
+                  description: 'Previous light palette',
+                },
+              ]
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => updateSettings({ theme: opt.id })}
+                className={`rounded-xl border p-4 text-left transition-colors cursor-pointer ${
+                  settings.theme === opt.id
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                <p className="text-sm font-medium">{opt.label}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{opt.description}</p>
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>

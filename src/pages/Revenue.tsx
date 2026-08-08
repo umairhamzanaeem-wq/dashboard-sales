@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatCurrency, platformColor, todayKey, generateId } from '@/lib/utils'
+import { themeAccent } from '@/lib/theme'
 import type { RevenuePlatform } from '@/types'
 
 interface FormData {
@@ -46,10 +47,10 @@ interface FormData {
   notes: string
 }
 
-const COLORS = ['#E60000', '#FF1A1A', '#B30000', '#F59E0B', '#16A34A']
-
 export function RevenuePage() {
   const { state, addRevenue, deleteRevenue, settings } = useApp()
+  const accents = themeAccent(settings.theme)
+  const COLORS = [accents.primary, accents.secondary, accents.warning, accents.success, '#a855f7']
   const [open, setOpen] = useState(false)
   const { register, handleSubmit, reset, setValue, watch } = useForm<FormData>({
     defaultValues: {
@@ -116,8 +117,8 @@ export function RevenuePage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Revenue" value={totalRevenue} icon={DollarSign} color="#E60000" />
-        <StatCard title="Monthly Revenue" value={monthlyRevenue} icon={TrendingUp} color="#FF1A1A" delay={0.05} />
+        <StatCard title="Total Revenue" value={totalRevenue} icon={DollarSign} color={accents.primary} />
+        <StatCard title="Monthly Revenue" value={monthlyRevenue} icon={TrendingUp} color={accents.secondary} delay={0.05} />
         <StatCard title="Largest Payment" value={largest} icon={Award} color="#f59e0b" delay={0.1} />
         <StatCard title="Avg Monthly" value={avgMonthly} icon={BarChart3} color="#a855f7" delay={0.15} />
       </div>
@@ -132,8 +133,8 @@ export function RevenuePage() {
               <AreaChart data={monthlyChart}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#E60000" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#E60000" stopOpacity={0} />
+                    <stop offset="0%" stopColor={accents.primary} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={accents.primary} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -145,7 +146,7 @@ export function RevenuePage() {
                   labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
-                <Area type="monotone" dataKey="amount" stroke="#E60000" fill="url(#revGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="amount" stroke={accents.primary} fill="url(#revGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -196,7 +197,7 @@ export function RevenuePage() {
                   labelStyle={{ color: '#fafafa' }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
                 />
-                <Bar dataKey="amount" fill="#E60000" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="amount" fill={accents.primary} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

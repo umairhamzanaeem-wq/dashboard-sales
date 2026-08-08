@@ -42,13 +42,14 @@ export function ProgressRing({
   percent,
   size = 80,
   strokeWidth = 6,
-  color = '#E60000',
+  color,
   className,
   children,
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference
+  const stroke = color ?? 'var(--color-primary)'
 
   return (
     <div className={`relative inline-flex items-center justify-center ${className ?? ''}`} style={{ width: size, height: size }}>
@@ -67,7 +68,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={color}
+          stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -134,7 +135,7 @@ export function StatCard({
   suffix,
   prefix,
   icon: Icon,
-  color = '#E60000',
+  color = 'var(--color-primary)',
   delay = 0,
   subtitle,
 }: {

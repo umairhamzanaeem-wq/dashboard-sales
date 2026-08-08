@@ -6,8 +6,10 @@ import {
   Search,
   Sun,
   Moon,
+  Flame,
   CheckCheck,
   Trash2,
+  Palette,
 } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
@@ -16,6 +18,8 @@ import { UserAvatar } from '@/components/UserAvatar'
 import { MobileMenuButton } from './Sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { THEME_OPTIONS } from '@/lib/theme'
+import type { ThemeMode } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -219,25 +223,36 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 px-2.5"
-          onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-          title={settings.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {settings.theme === 'dark' ? (
-            <>
-              <Sun className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline text-xs">Light</span>
-            </>
-          ) : (
-            <>
-              <Moon className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline text-xs">Dark</span>
-            </>
-          )}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5 px-2.5" title="Theme">
+              <Palette className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline text-xs max-w-[88px] truncate">
+                {THEME_OPTIONS.find((t) => t.id === settings.theme)?.label ?? 'Theme'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Theme</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {THEME_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.id}
+                onClick={() => updateSettings({ theme: opt.id as ThemeMode })}
+                className={settings.theme === opt.id ? 'bg-primary/10 text-foreground' : ''}
+              >
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    {opt.id.includes('light') ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                    {opt.id.startsWith('ignite') ? <Flame className="h-3.5 w-3.5 text-primary" /> : null}
+                    {opt.label}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">{opt.description}</span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <UserAvatar username={username} size="sm" className="hidden sm:block" />
       </header>

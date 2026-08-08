@@ -15,6 +15,7 @@ import { PageHeader, StatCard, ProgressRing } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatTime, sectionProgress, platformColor, platformLogo } from '@/lib/utils'
+import { themeAccent } from '@/lib/theme'
 import { DaySessionCard } from '@/components/DaySessionCard'
 import { DailyTimeline } from '@/components/Timeline'
 import type { Platform } from '@/types'
@@ -33,6 +34,7 @@ const PLATFORMS: Platform[] = [
 
 export function DashboardPage() {
   const { overall, score, settings, todayStats, progress } = useApp()
+  const accents = themeAccent(settings.theme)
 
   const cards: Array<{
     title: string
@@ -42,15 +44,15 @@ export function DashboardPage() {
     icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
     color: string
   }> = [
-    { title: "Today's Progress", value: overall.percent, suffix: '%', icon: Target, color: '#E60000' },
-    { title: 'Current Streak', value: settings.streak, suffix: ' days', icon: Flame, color: '#F59E0B' },
-    { title: 'Connections Sent', value: todayStats.connections, icon: Users, color: '#FF1A1A' },
-    { title: 'Follow-ups Done', value: todayStats.followUps, icon: MessageSquare, color: '#B30000' },
+    { title: "Today's Progress", value: overall.percent, suffix: '%', icon: Target, color: accents.primary },
+    { title: 'Current Streak', value: settings.streak, suffix: ' days', icon: Flame, color: accents.warning },
+    { title: 'Connections Sent', value: todayStats.connections, icon: Users, color: accents.secondary },
+    { title: 'Follow-ups Done', value: todayStats.followUps, icon: MessageSquare, color: accents.primary },
     { title: 'FB Comments', value: todayStats.facebookComments, icon: Facebook, color: '#1877f2' },
     { title: 'Facebook DMs', value: todayStats.facebookDms, icon: Mail, color: '#ec4899' },
     { title: 'Jobs Reviewed', value: todayStats.jobsReviewed, icon: Briefcase, color: '#14a800' },
     { title: 'Proposals Sent', value: todayStats.proposalsSent, icon: FileText, color: '#f97316' },
-    { title: 'Monthly Revenue', value: todayStats.monthlyRevenue, prefix: '$', icon: DollarSign, color: '#16A34A' },
+    { title: 'Monthly Revenue', value: todayStats.monthlyRevenue, prefix: '$', icon: DollarSign, color: accents.success },
     { title: 'Unread Messages', value: todayStats.unreadMessages, icon: Mail, color: '#A3A3A3' },
   ]
 
@@ -69,9 +71,14 @@ export function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 sm:p-8"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(230,0,0,0.12),_transparent_50%)]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at top right, ${accents.primary}1f, transparent 50%)`,
+          }}
+        />
         <div className="relative flex flex-col sm:flex-row items-center gap-6">
-          <ProgressRing percent={overall.percent} size={120} strokeWidth={8} color="#E60000">
+          <ProgressRing percent={overall.percent} size={120} strokeWidth={8} color={accents.primary}>
             <div className="text-center">
               <p className="text-2xl font-bold tabular-nums">{overall.percent}%</p>
               <p className="text-[10px] text-muted-foreground">Complete</p>

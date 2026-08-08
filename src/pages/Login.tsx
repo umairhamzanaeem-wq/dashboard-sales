@@ -1,25 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
+import { Eye, EyeOff, Palette } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { BrandLogo } from '@/components/BrandLogo'
-
-type ThemeMode = 'dark' | 'light'
-
-function readGuestTheme(): ThemeMode {
-  const saved = localStorage.getItem('bd-theme-pref')
-  if (saved === 'light' || saved === 'dark') return saved
-  return document.documentElement.classList.contains('light') ? 'light' : 'dark'
-}
-
-function applyTheme(theme: ThemeMode) {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
-  document.documentElement.classList.toggle('light', theme === 'light')
-  localStorage.setItem('bd-theme-pref', theme)
-}
+import {
+  applyTheme,
+  nextTheme,
+  readStoredTheme,
+  THEME_OPTIONS,
+} from '@/lib/theme'
+import type { ThemeMode } from '@/types'
 
 export function LoginPage() {
   const { isAuthenticated, login } = useAuth()
@@ -29,7 +22,7 @@ export function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [theme, setTheme] = useState<ThemeMode>(() => readGuestTheme())
+  const [theme, setTheme] = useState<ThemeMode>(() => readStoredTheme())
 
   useEffect(() => {
     applyTheme(theme)
@@ -50,18 +43,21 @@ export function LoginPage() {
     navigate('/', { replace: true })
   }
 
+  const label = THEME_OPTIONS.find((t) => t.id === theme)?.label ?? 'Theme'
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(230,0,0,0.18),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_rgba(153,0,0,0.12),_transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--color-primary)_18%,transparent),_transparent_55%)]" />
       <div className="absolute top-4 right-4 z-10">
         <Button
           variant="outline"
           size="sm"
           className="gap-1.5"
-          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          onClick={() => setTheme((t) => nextTheme(t))}
+          title="Cycle theme"
         >
-          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-          {theme === 'dark' ? 'Light' : 'Dark'}
+          <Palette className="h-3.5 w-3.5" />
+          {label}
         </Button>
       </div>
 
