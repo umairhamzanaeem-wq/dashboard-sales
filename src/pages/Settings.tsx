@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Bell, Palette, Target, Clock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Download, Upload, RotateCcw, Bell, Palette, Target, Clock, Mail, Link2, Unlink, Loader2 } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
+import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,6 +18,7 @@ import {
 import { downloadJson } from '@/lib/utils'
 import { exportState } from '@/lib/storage'
 import { createDailyProgress } from '@/lib/defaults'
+import { disconnectGmail, fetchGmailStatus, gmailAuthUrl } from '@/lib/gmail-api'
 import type { Platform } from '@/types'
 
 const REMINDER_LABELS: Record<Platform, string> = {
@@ -31,11 +34,93 @@ const REMINDER_LABELS: Record<Platform, string> = {
 
 export function SettingsPage() {
   const { state, settings, updateSettings, resetDashboard, importDashboard, dispatch } = useApp()
+  const { username } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
   const [resetOpen, setResetOpen] = useState(false)
   const [msg, setMsg] = useState('')
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null)
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [gmailLoading, setGmailLoading] = useState(true)
+  const [gmailBusy, setGmailBusy] = useState(false)
 
   const targets = settings.dailyTargets
+
+  const flash = (m: string) => {
+    setMsg(m)
+    setTimeout(() => setMsg(''), 3500)
+  }
+
+  useEffect(() => {
+    const status = searchParams.get('gmail')
+    if (status === 'connected') {
+      flash('Gmail Connected')
+      setSearchParams({}, { replace: true })
+      if (username) {
+        fetchGmailStatus(username)
+          .then((s) => {
+            setGmailConnected(!!s.connected)
+            setGmailEmail(s.email)
+          })
+          .catch(() => undefined)
+      }
+    } else if (status === 'error') {
+      flash(searchParams.get('reason') || 'Gmail connection failed')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams, username])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!username) {
+        setGmailLoading(false)
+        return
+      }
+      setGmailLoading(true)
+      try {
+        const status = await fetchGmailStatus(username)
+        if (!cancelled) {
+          setGmailConnected(!!status.connected)
+          setGmailEmail(status.email)
+        }
+      } catch {
+        if (!cancelled) {
+          setGmailConnected(false)
+          setGmailEmail(null)
+        }
+      } finally {
+        if (!cancelled) setGmailLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [username])
+
+  const connectGmail = () => {
+    if (!username) {
+      flash('Please sign in first')
+      return
+    }
+    window.location.href = gmailAuthUrl(username)
+  }
+
+  const handleDisconnectGmail = async () => {
+    if (!username) return
+    setGmailBusy(true)
+    try {
+      await disconnectGmail(username)
+      setGmailConnected(false)
+      setGmailEmail(null)
+      flash('Gmail disconnected')
+    } catch (e) {
+      flash(e instanceof Error ? e.message : 'Failed to disconnect Gmail')
+    } finally {
+      setGmailBusy(false)
+    }
+  }
 
   const updateTarget = (
     platform: keyof typeof targets,
@@ -119,11 +204,6 @@ export function SettingsPage() {
     }
   }
 
-  const flash = (m: string) => {
-    setMsg(m)
-    setTimeout(() => setMsg(''), 2500)
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Customize targets, timeline, theme & data" />
@@ -183,6 +263,54 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Gmail */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" /> Gmail Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Connect Gmail so Start Day and Finish Day can send daily work emails through your account.
+            Only the <span className="text-foreground">gmail.send</span> permission is requested.
+          </p>
+          {gmailLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Checking connection…
+            </div>
+          ) : gmailConnected ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+              <div>
+                <p className="text-sm font-medium text-success">Gmail Connected</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{gmailEmail}</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleDisconnectGmail}
+                disabled={gmailBusy}
+                className="gap-2"
+              >
+                {gmailBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
+                Disconnect Gmail
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+              <div>
+                <p className="text-sm font-medium">Not connected</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Please connect your Gmail account in Settings before sending daily notifications.
+                </p>
+              </div>
+              <Button onClick={connectGmail} className="gap-2">
+                <Link2 className="h-4 w-4" /> Connect Gmail
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
