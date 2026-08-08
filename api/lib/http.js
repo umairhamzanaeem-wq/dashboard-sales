@@ -11,7 +11,10 @@ export function getConfig() {
     return 'http://localhost:5173'
   })()
 
-  const redirectUri = process.env.GMAIL_REDIRECT_URI || `${appUrl}/api/gmail/callback`
+  const redirectUri =
+    process.env.GMAIL_REDIRECT_URI ||
+    process.env.GOOGLE_REDIRECT_URI ||
+    `${appUrl}/api/gmail/callback`
 
   const missing = []
   if (!clientId) missing.push('GOOGLE_CLIENT_ID')
@@ -24,7 +27,9 @@ export function getConfig() {
     encryptionKey: encryptionKey || '',
     appUrl,
     redirectUri,
-    scope: 'https://www.googleapis.com/auth/gmail.send',
+    // gmail.send alone cannot call users.getProfile; userinfo.email is required to read the connected address
+    scope:
+      'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email',
     missing,
   }
 }

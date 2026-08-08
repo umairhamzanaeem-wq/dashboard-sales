@@ -76,14 +76,31 @@ export async function refreshAccessToken(refreshToken) {
 }
 
 export async function getGmailAddress(accessToken) {
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+  // users.me/profile requires gmail.readonly/metadata/etc — NOT gmail.send.
+  // Resolve the connected address via userinfo.email instead.
+  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to load Gmail profile')
+    const msg =
+      data?.error?.message ||
+      data?.error_description ||
+      (typeof data?.error === 'string' ? data.error : null) ||
+      'Failed to load Google user email'
+    const err = new Error(msg)
+    err.status = res.status
+    err.step = 'getGmailAddress'
+    throw err
   }
-  return data.emailAddress
+  if (!data.email) {
+    const err = new Error(
+      'Google did not return an email. Reconnect Gmail and grant the email permission.'
+    )
+    err.step = 'getGmailAddress'
+    throw err
+  }
+  return data.email
 }
 
 export async function ensureAccessToken(req, res, username) {

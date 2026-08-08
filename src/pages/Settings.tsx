@@ -276,7 +276,8 @@ export function SettingsPage() {
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
             Connect Gmail so Start Day and Finish Day can send daily work emails through your account.
-            Only the <span className="text-foreground">gmail.send</span> permission is requested.
+            Only <span className="text-foreground">gmail.send</span> and email identity
+            permissions are requested so daily emails can be sent from your account.
           </p>
           {gmailLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
