@@ -46,39 +46,46 @@ function metric(progress: DailyProgress, platform: Platform, id: string) {
   return getMetric(progress.platforms, platform, id)?.completed ?? 0
 }
 
-export function buildPlannedActivities(progress: DailyProgress): string[] {
-  const activities: string[] = []
-  const order: Platform[] = [
-    'fiverr',
-    'linkedin_saad',
-    'linkedin_umair',
-    'facebook',
-    'threads',
-    'instagram',
-    'upwork',
-    'review',
-  ]
+const PLATFORM_ORDER: Platform[] = [
+  'fiverr',
+  'linkedin_saad',
+  'linkedin_umair',
+  'facebook',
+  'threads',
+  'instagram',
+  'upwork',
+  'review',
+]
 
-  for (const id of order) {
+export function buildPlannedActivities(progress: DailyProgress): string[] {
+  return buildStartPlatforms(progress).flatMap((p) =>
+    p.items.map((item) => `${p.name}: ${item}`)
+  )
+}
+
+/** Structured platforms for branded start-day HTML emails */
+export function buildStartPlatforms(progress: DailyProgress) {
+  const platforms: { id: Platform; name: string; items: string[] }[] = []
+
+  for (const id of PLATFORM_ORDER) {
     const section = progress.platforms[id]
     if (!section) continue
-    const counterBits = section.counters
-      .map((c) => `${c.label} (target ${c.target})`)
-      .join(', ')
-    const taskBits = section.checklist.map((c) => c.label).join(', ')
-    const detail = [counterBits, taskBits].filter(Boolean).join(' · ')
-    activities.push(detail ? `${section.name}: ${detail}` : section.name)
-
+    const items: string[] = [
+      ...section.counters.map((c) => `${c.label} (target ${c.target})`),
+      ...section.checklist.map((c) => c.label),
+    ]
     if (id === 'instagram') {
-      activities.push(
-        'Instagram outreach: gym, med spa, law firms, HVAC, real estate, dental, healthcare + DMs'
+      items.push(
+        'Outreach: gym, med spa, law firms, HVAC, real estate, dental, healthcare + DMs'
       )
     }
     if (id === 'threads') {
-      activities.push('Threads: one post daily and DM / replies')
+      items.push('One post daily and DM / replies')
     }
+    if (items.length === 0) items.push('Complete platform workflow')
+    platforms.push({ id, name: section.name, items })
   }
-  return activities
+  return platforms
 }
 
 function fmtTime(iso: string | null | undefined) {
@@ -93,8 +100,10 @@ function fmtTime(iso: string | null | undefined) {
 export async function sendDailyStartEmailRequest(input: {
   username: string
   userName: string
+  avatarUrl?: string
   progress: DailyProgress
 }) {
+  const platforms = buildStartPlatforms(input.progress)
   const res = await fetch('/api/gmail/send-start', {
     method: 'POST',
     credentials: 'include',
@@ -102,9 +111,11 @@ export async function sendDailyStartEmailRequest(input: {
     body: JSON.stringify({
       username: input.username,
       userName: input.userName,
+      avatarUrl: input.avatarUrl || '',
       date: input.progress.date,
       startTime: fmtTime(input.progress.dayStartedAt),
       activities: buildPlannedActivities(input.progress),
+      platforms,
     }),
   })
   return parseJson(res) as Promise<{ ok: boolean; message: string; to?: string }>
@@ -113,6 +124,7 @@ export async function sendDailyStartEmailRequest(input: {
 export async function sendDailyPerformanceEmailRequest(input: {
   username: string
   userName: string
+  avatarUrl?: string
   state: AppState
   progress: DailyProgress
 }) {
@@ -137,6 +149,7 @@ export async function sendDailyPerformanceEmailRequest(input: {
     body: JSON.stringify({
       username: input.username,
       userName: input.userName,
+      avatarUrl: input.avatarUrl || '',
       date: progress.date,
       startTime: fmtTime(progress.dayStartedAt),
       endTime: fmtTime(progress.dayFinishedAt),

@@ -77,6 +77,7 @@ export function DaySessionCard() {
       const res = await sendDailyStartEmailRequest({
         username,
         userName: profile.displayName,
+        avatarUrl: profile.avatar,
         progress: snapshot,
       })
       setEmailStatus(res.message || 'Start Day Email Sent')
@@ -134,6 +135,7 @@ export function DaySessionCard() {
       const res = await sendDailyPerformanceEmailRequest({
         username,
         userName: profile.displayName,
+        avatarUrl: profile.avatar,
         state,
         progress: snapshot,
       })

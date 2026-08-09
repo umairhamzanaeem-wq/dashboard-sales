@@ -15,10 +15,17 @@ export default async function handler(req, res) {
       date: body.date || new Date().toISOString().slice(0, 10),
       startTime: body.startTime || new Date().toLocaleTimeString(),
       userName: body.userName || username,
+      username,
+      userEmail: bundle.email,
+      avatarUrl: body.avatarUrl || '',
       activities: Array.isArray(body.activities) ? body.activities : [],
+      platforms: Array.isArray(body.platforms) ? body.platforms : [],
     })
 
-    await sendGmailMessage(bundle.accessToken, bundle.email, emailPayload.subject, emailPayload.body)
+    await sendGmailMessage(bundle.accessToken, bundle.email, emailPayload.subject, {
+      text: emailPayload.text || emailPayload.body,
+      html: emailPayload.html,
+    })
 
     return json(res, 200, {
       ok: true,
