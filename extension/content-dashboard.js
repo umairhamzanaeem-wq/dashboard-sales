@@ -149,7 +149,9 @@
     // Never let empty/not_started extension state wipe an active dashboard day
     if (
       local &&
-      (local.dailyProgress?.dayStatus === 'in_progress' || (local.updatedAt ?? 0) > 0) &&
+      (local.dailyProgress?.dayStatus === 'in_progress' ||
+        local.dailyProgress?.dayStatus === 'paused' ||
+        (local.updatedAt ?? 0) > 0) &&
       (incoming.dailyProgress?.dayStatus === 'not_started' || (incoming.updatedAt ?? 0) < (local.updatedAt ?? 0))
     ) {
       pushPageToExtension()

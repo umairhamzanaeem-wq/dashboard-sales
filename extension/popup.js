@@ -299,9 +299,15 @@ function renderSession() {
   const status = state.dailyProgress.dayStatus || 'not_started'
   const pill = $('day-status')
   pill.textContent = status.replace('_', ' ')
-  pill.className = 'pill' + (status === 'in_progress' ? ' active' : status === 'finished' ? ' done' : '')
-  $('btn-start-day').classList.toggle('hidden', status === 'in_progress')
-  $('btn-finish-day').classList.toggle('hidden', status !== 'in_progress')
+  pill.className =
+    'pill' +
+    (status === 'in_progress' ? ' active' : status === 'paused' ? ' paused' : status === 'finished' ? ' done' : '')
+  const startBtn = $('btn-start-day')
+  startBtn.classList.toggle('hidden', status === 'in_progress' || status === 'paused')
+  startBtn.textContent = status === 'finished' ? 'Start New Day' : 'Start Day'
+  $('btn-pause-day').classList.toggle('hidden', status !== 'in_progress')
+  $('btn-resume-day').classList.toggle('hidden', status !== 'paused')
+  $('btn-finish-day').classList.toggle('hidden', status !== 'in_progress' && status !== 'paused')
 }
 
 function renderStepBody() {
@@ -384,6 +390,7 @@ function stateScore(s) {
   let score = 0
   const status = s.dailyProgress.dayStatus
   if (status === 'in_progress') score += 10000
+  if (status === 'paused') score += 8000
   if (status === 'finished') score += 5000
   score += overallPct(s) * 10
   score += s.updatedAt ? Math.min(s.updatedAt / 1e10, 1000) : 0
@@ -621,7 +628,59 @@ $('btn-sync').addEventListener('click', async () => {
   if (s) renderAll()
 })
 
+function freshPlatformsFrom(current) {
+  const platforms = {}
+  Object.keys(current.platforms || {}).forEach((id) => {
+    const section = current.platforms[id]
+    platforms[id] = {
+      ...section,
+      completed: false,
+      notes: '',
+      checklist: (section.checklist || []).map((item) => ({ ...item, completed: false })),
+      counters: (section.counters || []).map((c) => ({ ...c, completed: 0, notes: '' })),
+    }
+  })
+  return platforms
+}
+
 $('btn-start-day').addEventListener('click', async () => {
+  const status = state.dailyProgress.dayStatus || 'not_started'
+  if (status === 'finished') {
+    const pct = overallPct(state)
+    const entry = {
+      date: state.dailyProgress.date,
+      completionPercent: pct,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      connections: 0,
+      followUps: 0,
+      facebookComments: 0,
+      facebookDms: 0,
+      jobsReviewed: 0,
+      proposalsSent: 0,
+      revenue: 0,
+      notes: state.dailyProgress.dailyNotes || '',
+      totalTimeWorkedSeconds: state.dailyProgress.totalTimeWorkedSeconds || 0,
+      productivityScore: pct,
+      dayStartedAt: state.dailyProgress.dayStartedAt,
+      dayFinishedAt: state.dailyProgress.dayFinishedAt,
+      dayStatus: 'finished',
+    }
+    state.history = [entry, ...(state.history || []).filter((h) => h.date !== entry.date)]
+    state.dailyProgress.platforms = freshPlatformsFrom(state.dailyProgress)
+    state.dailyProgress.dailyNotes = ''
+    state.dailyProgress.confettiShown = false
+    state.dailyProgress.totalTimeWorkedSeconds = 0
+    if (Array.isArray(state.dailyProgress.timeline)) {
+      state.dailyProgress.timeline = state.dailyProgress.timeline.map((b) => ({
+        ...b,
+        status: 'pending',
+        elapsedSeconds: 0,
+        startedAt: null,
+        completedAt: null,
+      }))
+    }
+  }
   state.dailyProgress.dayStatus = 'in_progress'
   state.dailyProgress.dayStartedAt = new Date().toISOString()
   state.dailyProgress.dayFinishedAt = null
@@ -629,9 +688,36 @@ $('btn-start-day').addEventListener('click', async () => {
   renderAll()
 })
 
+$('btn-pause-day').addEventListener('click', async () => {
+  if (state.dailyProgress.dayStatus !== 'in_progress') return
+  state.dailyProgress.dayStatus = 'paused'
+  if (Array.isArray(state.dailyProgress.timeline)) {
+    state.dailyProgress.timeline = state.dailyProgress.timeline.map((b) =>
+      b.status === 'active' ? { ...b, status: 'paused' } : b
+    )
+  }
+  await persist()
+  renderAll()
+})
+
+$('btn-resume-day').addEventListener('click', async () => {
+  if (state.dailyProgress.dayStatus !== 'paused') return
+  state.dailyProgress.dayStatus = 'in_progress'
+  await persist()
+  renderAll()
+})
+
 $('btn-finish-day').addEventListener('click', async () => {
+  const status = state.dailyProgress.dayStatus
+  if (status !== 'in_progress' && status !== 'paused') return
+  if (!confirm('Finish day and save to History?')) return
   state.dailyProgress.dayStatus = 'finished'
   state.dailyProgress.dayFinishedAt = new Date().toISOString()
+  if (Array.isArray(state.dailyProgress.timeline)) {
+    state.dailyProgress.timeline = state.dailyProgress.timeline.map((b) =>
+      b.status === 'active' ? { ...b, status: 'paused' } : b
+    )
+  }
   const pct = overallPct(state)
   const entry = {
     date: state.dailyProgress.date,

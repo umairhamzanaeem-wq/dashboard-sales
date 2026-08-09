@@ -61,6 +61,7 @@ body {
   vertical-align: middle;
 }
 .pill.active { color: var(--accent); border-color: #166534; background: #052e16; }
+.pill.paused { color: #fbbf24; border-color: #854d0e; background: #422006; }
 .pill.done { color: var(--accent); }
 
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }

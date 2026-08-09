@@ -56,8 +56,10 @@ type Action =
   | { type: 'SAVE_DAY_TO_HISTORY' }
   | { type: 'ENSURE_TODAY' }
   | { type: 'START_DAY' }
+  | { type: 'PAUSE_DAY' }
   | { type: 'FINISH_DAY' }
   | { type: 'RESUME_DAY' }
+  | { type: 'START_NEW_DAY' }
   | { type: 'SET_CONFETTI_SHOWN' }
   | { type: 'UPDATE_STREAK' }
 
@@ -106,6 +108,7 @@ function reducer(state: AppState, action: Action): AppState {
       const shouldArchive =
         prev.dayStatus === 'finished' ||
         prev.dayStatus === 'in_progress' ||
+        prev.dayStatus === 'paused' ||
         ov.tasksCompleted > 0
       if (shouldArchive) {
         const entry = {
@@ -124,26 +127,27 @@ function reducer(state: AppState, action: Action): AppState {
     case 'START_DAY': {
       const today = todayKey()
       const current = state.dailyProgress
-      // Already working today
-      if (current.date === today && current.dayStatus === 'in_progress') {
+      // Already working or paused today — use resume / continue instead
+      if (
+        current.date === today &&
+        (current.dayStatus === 'in_progress' || current.dayStatus === 'paused')
+      ) {
         return state
       }
-      // Resume finished today without wiping
+      // Finished today — Start New Day handles a fresh session
       if (current.date === today && current.dayStatus === 'finished') {
-        return {
-          ...state,
-          dailyProgress: {
-            ...current,
-            dayStatus: 'in_progress',
-            dayFinishedAt: null,
-          },
-        }
+        return state
       }
       // Fresh start for today (or leftover from another date)
       let history = state.history
       if (current.date !== today) {
         const ov = overallProgress(current)
-        if (current.dayStatus === 'in_progress' || current.dayStatus === 'finished' || ov.tasksCompleted > 0) {
+        if (
+          current.dayStatus === 'in_progress' ||
+          current.dayStatus === 'paused' ||
+          current.dayStatus === 'finished' ||
+          ov.tasksCompleted > 0
+        ) {
           history = [
             {
               ...buildHistoryEntry(current, state),
@@ -168,8 +172,38 @@ function reducer(state: AppState, action: Action): AppState {
         },
       }
     }
-    case 'FINISH_DAY': {
+    case 'PAUSE_DAY': {
       if (state.dailyProgress.dayStatus !== 'in_progress') return state
+      return {
+        ...state,
+        dailyProgress: {
+          ...state.dailyProgress,
+          dayStatus: 'paused',
+          timeline: state.dailyProgress.timeline.map((b) =>
+            b.status === 'active' ? { ...b, status: 'paused' as const } : b
+          ),
+        },
+        notifications: [
+          {
+            id: generateId(),
+            title: 'Day Paused',
+            body: 'Your session is paused. Resume when you are ready to continue.',
+            time: currentTimeString(),
+            createdAt: new Date().toISOString(),
+            read: false,
+            type: 'info' as const,
+          },
+          ...state.notifications,
+        ].slice(0, 50),
+      }
+    }
+    case 'FINISH_DAY': {
+      if (
+        state.dailyProgress.dayStatus !== 'in_progress' &&
+        state.dailyProgress.dayStatus !== 'paused'
+      ) {
+        return state
+      }
       const finishedAt = new Date().toISOString()
       const progress = {
         ...state.dailyProgress,
@@ -223,13 +257,44 @@ function reducer(state: AppState, action: Action): AppState {
       }
     }
     case 'RESUME_DAY': {
-      if (state.dailyProgress.dayStatus !== 'finished') return state
+      if (state.dailyProgress.dayStatus !== 'paused') return state
       if (state.dailyProgress.date !== todayKey()) return state
       return {
         ...state,
         dailyProgress: {
           ...state.dailyProgress,
           dayStatus: 'in_progress',
+        },
+      }
+    }
+    case 'START_NEW_DAY': {
+      if (state.dailyProgress.dayStatus !== 'finished') return state
+      const today = todayKey()
+      const current = state.dailyProgress
+      // Finished day is already in history; start a fresh session for today
+      const fresh = createDailyProgress(
+        state.settings.dailyTargets,
+        state.settings.timeline,
+        today
+      )
+      // Keep finished entry if same calendar date (e.g. second shift)
+      let history = state.history
+      if (current.date === today) {
+        const entry = {
+          ...buildHistoryEntry(current, state),
+          dayStartedAt: current.dayStartedAt,
+          dayFinishedAt: current.dayFinishedAt,
+          dayStatus: 'finished' as const,
+        }
+        history = [entry, ...history.filter((h) => h.date !== entry.date)]
+      }
+      return {
+        ...state,
+        history,
+        dailyProgress: {
+          ...fresh,
+          dayStatus: 'in_progress',
+          dayStartedAt: new Date().toISOString(),
           dayFinishedAt: null,
         },
       }
@@ -499,8 +564,10 @@ interface AppContextValue {
   importDashboard: (json: string) => void
   saveToday: () => void
   startDay: () => void
+  pauseDay: () => void
   finishDay: () => void
   resumeDay: () => void
+  startNewDay: () => void
   markNotificationRead: (id: string) => void
   markAllNotificationsRead: () => void
   clearNotifications: () => void
@@ -737,8 +804,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, []),
     saveToday: useCallback(() => dispatch({ type: 'SAVE_DAY_TO_HISTORY' }), []),
     startDay: useCallback(() => dispatch({ type: 'START_DAY' }), []),
+    pauseDay: useCallback(() => dispatch({ type: 'PAUSE_DAY' }), []),
     finishDay: useCallback(() => dispatch({ type: 'FINISH_DAY' }), []),
     resumeDay: useCallback(() => dispatch({ type: 'RESUME_DAY' }), []),
+    startNewDay: useCallback(() => dispatch({ type: 'START_NEW_DAY' }), []),
     markNotificationRead: useCallback(
       (id) => dispatch({ type: 'MARK_NOTIFICATION_READ', id }),
       []

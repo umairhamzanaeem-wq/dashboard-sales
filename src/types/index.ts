@@ -50,7 +50,7 @@ export interface TimelineBlock {
   completedAt: string | null
 }
 
-export type DayStatus = 'not_started' | 'in_progress' | 'finished'
+export type DayStatus = 'not_started' | 'in_progress' | 'paused' | 'finished'
 
 export interface DailyProgress {
   date: string // YYYY-MM-DD
