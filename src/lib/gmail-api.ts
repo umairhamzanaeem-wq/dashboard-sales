@@ -52,6 +52,7 @@ const PLATFORM_ORDER: Platform[] = [
   'linkedin_umair',
   'facebook',
   'threads',
+  'x',
   'instagram',
   'upwork',
   'review',
@@ -81,6 +82,9 @@ export function buildStartPlatforms(progress: DailyProgress) {
     }
     if (id === 'threads') {
       items.push('One post daily and DM / replies')
+    }
+    if (id === 'x') {
+      items.push('Find 10 posts and comment · find people and reach out')
     }
     if (items.length === 0) items.push('Complete platform workflow')
     platforms.push({ id, name: section.name, items })
@@ -160,6 +164,8 @@ export async function sendDailyPerformanceEmailRequest(input: {
       instagramDms,
       threadsPosts: metric(progress, 'threads', 'posts'),
       threadsDms: metric(progress, 'threads', 'dms'),
+      xComments: metric(progress, 'x', 'comments'),
+      xOutreach: metric(progress, 'x', 'outreach'),
       linkedinConnections:
         metric(progress, 'linkedin_saad', 'connections') +
         metric(progress, 'linkedin_umair', 'connections'),

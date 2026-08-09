@@ -167,6 +167,7 @@ export function platformColor(platform: string): string {
     linkedin_umair: '#0a66c2',
     facebook: '#1877f2',
     threads: '#ffffff',
+    x: '#000000',
     instagram: '#e1306c',
     upwork: '#14a800',
     review: '#f59e0b',
@@ -186,6 +187,7 @@ export function platformLogo(platform: string): string | undefined {
     linkedin_umair: '/platforms/linkedin.png',
     facebook: '/platforms/facebook.png',
     threads: '/platforms/threads.png',
+    x: '/platforms/x.png',
     instagram: '/platforms/instagram.png',
     upwork: '/platforms/upwork.png',
   }

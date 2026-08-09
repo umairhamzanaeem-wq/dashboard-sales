@@ -26,6 +26,8 @@ export default async function handler(req, res) {
       instagramDms: body.instagramDms ?? 0,
       threadsPosts: body.threadsPosts ?? 0,
       threadsDms: body.threadsDms ?? 0,
+      xComments: body.xComments ?? 0,
+      xOutreach: body.xOutreach ?? 0,
       linkedinConnections: body.linkedinConnections ?? 0,
       linkedinFollowUps: body.linkedinFollowUps ?? 0,
       linkedinComments: body.linkedinComments ?? 0,

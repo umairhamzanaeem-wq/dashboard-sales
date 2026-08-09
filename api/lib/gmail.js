@@ -112,6 +112,7 @@ function brandLogos() {
     facebook: assetUrl('/platforms/facebook.png'),
     linkedin: assetUrl('/platforms/linkedin.png'),
     threads: assetUrl('/platforms/threads.png'),
+    x: assetUrl('/platforms/x.png'),
     instagram: assetUrl('/platforms/instagram.png'),
     upwork: assetUrl('/platforms/upwork.png'),
     fiverr: assetUrl('/platforms/fiverr.png'),
@@ -126,6 +127,7 @@ function platformLogoFor(id, logos) {
     linkedin: logos.linkedin,
     facebook: logos.facebook,
     threads: logos.threads,
+    x: logos.x,
     instagram: logos.instagram,
     upwork: logos.upwork,
   }
@@ -140,6 +142,7 @@ function platformAccent(id) {
     linkedin: '#0A66C2',
     facebook: '#1877F2',
     threads: '#111111',
+    x: '#000000',
     instagram: '#E1306C',
     upwork: '#14A800',
     review: '#E60000',
@@ -188,6 +191,7 @@ function emailFooter(logos) {
             <td style="padding:0 4px;"><img src="${logos.linkedin}" width="22" height="22" alt="LinkedIn" style="border-radius:6px;display:block;" /></td>
             <td style="padding:0 4px;"><img src="${logos.facebook}" width="22" height="22" alt="Facebook" style="border-radius:6px;display:block;" /></td>
             <td style="padding:0 4px;"><img src="${logos.threads}" width="22" height="22" alt="Threads" style="border-radius:6px;display:block;" /></td>
+            <td style="padding:0 4px;"><img src="${logos.x}" width="22" height="22" alt="X" style="border-radius:6px;display:block;" /></td>
             <td style="padding:0 4px;"><img src="${logos.instagram}" width="22" height="22" alt="Instagram" style="border-radius:6px;display:block;" /></td>
             <td style="padding:0 4px;"><img src="${logos.upwork}" width="22" height="22" alt="Upwork" style="border-radius:6px;display:block;" /></td>
           </tr>
@@ -469,6 +473,14 @@ function buildPerformanceHtml(input) {
                     metricRow('DMs', input.threadsDms),
                 })}
                 ${platformCard({
+                  name: 'X Outreach',
+                  logo: logos.x,
+                  color: '#000000',
+                  rows:
+                    metricRow('Posts commented', input.xComments) +
+                    metricRow('People reached out', input.xOutreach),
+                })}
+                ${platformCard({
                   name: 'LinkedIn',
                   logo: logos.linkedin,
                   color: '#0A66C2',
@@ -565,6 +577,10 @@ export function sendDailyPerformanceEmail(input) {
     '— Threads —',
     `Posts: ${input.threadsPosts}`,
     `DMs: ${input.threadsDms}`,
+    '',
+    '— X Outreach —',
+    `Posts commented: ${input.xComments}`,
+    `People reached out: ${input.xOutreach}`,
     '',
     '— LinkedIn —',
     `Connection requests: ${input.linkedinConnections}`,

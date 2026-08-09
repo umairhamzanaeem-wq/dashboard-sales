@@ -17,6 +17,7 @@ export const DEFAULT_TARGETS: DailyTargets = {
   linkedin_umair: { connections: 30, followUps: 10, comments: 5 },
   facebook: { comments: 20, dms: 10, posts: 1 },
   threads: { posts: 1, dms: 10 },
+  x: { comments: 10, outreach: 10 },
   instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
@@ -28,9 +29,10 @@ export const DEFAULT_TIMELINE: TimelineSettings = {
     { id: 'linkedin_umair', name: 'LinkedIn (Umair)', startTime: '22:40', estimatedMinutes: 80 },
     { id: 'facebook', name: 'Facebook', startTime: '00:00', estimatedMinutes: 60 },
     { id: 'threads', name: 'Threads', startTime: '01:00', estimatedMinutes: 25 },
-    { id: 'instagram', name: 'Instagram', startTime: '01:25', estimatedMinutes: 40 },
-    { id: 'upwork', name: 'Upwork', startTime: '02:05', estimatedMinutes: 75 },
-    { id: 'review', name: 'Daily Review & Planning', startTime: '03:20', estimatedMinutes: 45 },
+    { id: 'x', name: 'X Outreach', startTime: '01:25', estimatedMinutes: 30 },
+    { id: 'instagram', name: 'Instagram', startTime: '01:55', estimatedMinutes: 40 },
+    { id: 'upwork', name: 'Upwork', startTime: '02:35', estimatedMinutes: 75 },
+    { id: 'review', name: 'Daily Review & Planning', startTime: '03:50', estimatedMinutes: 45 },
   ],
 }
 
@@ -40,6 +42,7 @@ export const SCHEDULE_MESSAGES: Record<Platform, string> = {
   linkedin_umair: 'Switch to LinkedIn (Umair).',
   facebook: 'Facebook Outreach Time.',
   threads: 'Post on Threads & reply to DMs.',
+  x: 'Find 10 posts to comment on X and reach out to people.',
   instagram: 'Instagram lead outreach time.',
   upwork: 'Search Upwork Jobs.',
   review: "Finish today's review.",
@@ -51,6 +54,7 @@ export const PLATFORM_LOGOS: Partial<Record<Platform, string>> = {
   linkedin_umair: '/platforms/linkedin.png',
   facebook: '/platforms/facebook.png',
   threads: '/platforms/threads.png',
+  x: '/platforms/x.png',
   instagram: '/platforms/instagram.png',
   upwork: '/platforms/upwork.png',
 }
@@ -76,6 +80,35 @@ export function createThreadsSection(targets: DailyTargets): PlatformSection {
     counters: [
       { id: 'posts', label: 'Daily Posts', target: targets.threads?.posts ?? 1, completed: 0 },
       { id: 'dms', label: 'DMs / Replies', target: targets.threads?.dms ?? 10, completed: 0 },
+    ],
+    notes: '',
+    completed: false,
+  }
+}
+
+export function createXSection(targets: DailyTargets): PlatformSection {
+  return {
+    id: 'x',
+    name: 'X Outreach',
+    estimatedMinutes: 30,
+    purpose: 'Find 10 posts daily and comment on them, then find people and reach out.',
+    checklist: makeChecklist([
+      'Find 10 posts and leave meaningful comments',
+      'Find people and send outreach messages',
+    ]),
+    counters: [
+      {
+        id: 'comments',
+        label: 'Posts Commented',
+        target: targets.x?.comments ?? 10,
+        completed: 0,
+      },
+      {
+        id: 'outreach',
+        label: 'People Reached Out',
+        target: targets.x?.outreach ?? 10,
+        completed: 0,
+      },
     ],
     notes: '',
     completed: false,
@@ -118,6 +151,7 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
     ...DEFAULT_TARGETS,
     ...targets,
     threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
+    x: { ...DEFAULT_TARGETS.x, ...targets.x },
     instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
   }
 
@@ -186,6 +220,7 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
       completed: false,
     },
     threads: createThreadsSection(t),
+    x: createXSection(t),
     instagram: createInstagramSection(t),
     upwork: {
       id: 'upwork',
@@ -262,9 +297,10 @@ export function createDefaultSettings(): AppSettings {
       linkedin_umair: '22:40',
       facebook: '00:00',
       threads: '01:00',
-      instagram: '01:25',
-      upwork: '02:05',
-      review: '03:20',
+      x: '01:25',
+      instagram: '01:55',
+      upwork: '02:35',
+      review: '03:50',
     },
     dailyTargets: { ...DEFAULT_TARGETS },
     timeline: structuredClone(DEFAULT_TIMELINE),

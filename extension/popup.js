@@ -10,6 +10,7 @@ const STEPS = [
   { id: 'linkedin_umair', name: 'LinkedIn (Umair)', short: 'LI Umair', url: 'https://www.linkedin.com/', logo: 'platforms/linkedin.png' },
   { id: 'facebook', name: 'Facebook', short: 'Facebook', url: 'https://www.facebook.com/', logo: 'platforms/facebook.png' },
   { id: 'threads', name: 'Threads', short: 'Threads', url: 'https://www.threads.net/', logo: 'platforms/threads.png' },
+  { id: 'x', name: 'X Outreach', short: 'X', url: 'https://x.com/', logo: 'platforms/x.png' },
   { id: 'instagram', name: 'Instagram', short: 'Instagram', url: 'https://www.instagram.com/', logo: 'platforms/instagram.png' },
   { id: 'upwork', name: 'Upwork', short: 'Upwork', url: 'https://www.upwork.com/', logo: 'platforms/upwork.png' },
   { id: 'review', name: 'Daily Review', short: 'Review', url: DASH_URL },
@@ -20,6 +21,7 @@ const DEFAULT_TARGETS = {
   linkedin_umair: { connections: 30, followUps: 10, comments: 5 },
   facebook: { comments: 20, dms: 10, posts: 1 },
   threads: { posts: 1, dms: 10 },
+  x: { comments: 10, outreach: 10 },
   instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
@@ -142,6 +144,22 @@ function createDefaultState() {
           counters: [
             { id: 'posts', label: 'Daily Posts', target: targets.threads.posts, completed: 0 },
             { id: 'dms', label: 'DMs / Replies', target: targets.threads.dms, completed: 0 },
+          ],
+          notes: '',
+          completed: false,
+        },
+        x: {
+          id: 'x',
+          name: 'X Outreach',
+          estimatedMinutes: 30,
+          purpose: 'Find 10 posts daily and comment on them, then find people and reach out.',
+          checklist: makeChecklist([
+            'Find 10 posts and leave meaningful comments',
+            'Find people and send outreach messages',
+          ]),
+          counters: [
+            { id: 'comments', label: 'Posts Commented', target: targets.x.comments, completed: 0 },
+            { id: 'outreach', label: 'People Reached Out', target: targets.x.outreach, completed: 0 },
           ],
           notes: '',
           completed: false,
@@ -430,6 +448,7 @@ function patchState(s) {
       ...fresh.settings.dailyTargets,
       ...s.settings.dailyTargets,
       threads: { ...fresh.settings.dailyTargets.threads, ...(s.settings.dailyTargets?.threads || {}) },
+      x: { ...fresh.settings.dailyTargets.x, ...(s.settings.dailyTargets?.x || {}) },
       instagram: {
         ...fresh.settings.dailyTargets.instagram,
         ...(s.settings.dailyTargets?.instagram || {}),

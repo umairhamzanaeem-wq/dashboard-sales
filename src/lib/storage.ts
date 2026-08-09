@@ -24,6 +24,7 @@ const PLATFORM_ORDER: Platform[] = [
   'linkedin_umair',
   'facebook',
   'threads',
+  'x',
   'instagram',
   'upwork',
   'review',
@@ -68,6 +69,7 @@ function normalizeProgress(
     ...DEFAULT_TARGETS,
     ...targets,
     threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
+    x: { ...DEFAULT_TARGETS.x, ...targets.x },
     instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
   }
   const defaults = createPlatformSections(mergedTargets)
@@ -117,6 +119,10 @@ export function normalizeState(parsed: AppState): AppState {
       threads: {
         ...DEFAULT_TARGETS.threads,
         ...parsed.settings?.dailyTargets?.threads,
+      },
+      x: {
+        ...DEFAULT_TARGETS.x,
+        ...parsed.settings?.dailyTargets?.x,
       },
       instagram: {
         ...DEFAULT_TARGETS.instagram,

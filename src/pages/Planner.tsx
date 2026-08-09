@@ -14,6 +14,7 @@ const PLATFORMS: Platform[] = [
   'linkedin_umair',
   'facebook',
   'threads',
+  'x',
   'instagram',
   'upwork',
 ]

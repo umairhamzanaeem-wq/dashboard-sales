@@ -4,6 +4,7 @@ export type Platform =
   | 'linkedin_umair'
   | 'facebook'
   | 'threads'
+  | 'x'
   | 'instagram'
   | 'upwork'
   | 'review'
@@ -83,6 +84,10 @@ export interface DailyTargets {
   threads: {
     posts: number
     dms: number
+  }
+  x: {
+    comments: number
+    outreach: number
   }
   instagram: {
     businesses: number
