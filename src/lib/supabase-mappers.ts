@@ -471,3 +471,24 @@ export function localHasMeaningfulData(state: {
   }
   return false
 }
+
+/** Higher = more real progress (used to avoid blank devices wiping cloud). */
+export function progressScore(state: {
+  history: HistoryEntry[]
+  revenue: RevenueEntry[]
+  dailyProgress: DailyProgress
+}): number {
+  let score = 0
+  score += state.history.length * 100
+  score += state.revenue.length * 50
+  if (state.dailyProgress.dayStatus === 'in_progress') score += 5
+  if (state.dailyProgress.dayStatus === 'paused') score += 5
+  if (state.dailyProgress.dayStatus === 'finished') score += 20
+  score += Math.min(state.dailyProgress.totalTimeWorkedSeconds, 5000)
+  for (const section of Object.values(state.dailyProgress.platforms)) {
+    score += section.counters.reduce((sum, c) => sum + c.completed, 0) * 3
+    score += section.checklist.filter((c) => c.completed).length * 2
+    if (section.notes?.trim()) score += 1
+  }
+  return score
+}

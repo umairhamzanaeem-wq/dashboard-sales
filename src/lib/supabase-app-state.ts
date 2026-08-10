@@ -12,6 +12,7 @@ import {
   localHasMeaningfulData,
   notificationFromRow,
   PLATFORM_ORDER,
+  progressScore,
   revenueFromRow,
   settingsFromCloud,
   strategiesFromSettings,
@@ -42,6 +43,90 @@ function maxUpdatedAt(values: Array<string | null | undefined>): number {
   return max
 }
 
+async function resolveSessionId(
+  userId: string,
+  sessionDate: string,
+  progress: AppState['dailyProgress']
+): Promise<string> {
+  const payload = {
+    user_id: userId,
+    date: sessionDate,
+    day_status: progress.dayStatus,
+    day_started_at: progress.dayStartedAt,
+    day_finished_at: progress.dayFinishedAt,
+    daily_notes: progress.dailyNotes ?? '',
+    confetti_shown: progress.confettiShown,
+    total_time_worked_seconds: progress.totalTimeWorkedSeconds ?? 0,
+  }
+
+  const upsertRes = await supabase
+    .from('daily_sessions')
+    .upsert(payload, { onConflict: 'user_id,date' })
+    .select('id')
+    .maybeSingle()
+
+  if (upsertRes.error) throw new Error(upsertRes.error.message)
+  if (upsertRes.data?.id) return upsertRes.data.id as string
+
+  const existing = await supabase
+    .from('daily_sessions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date', sessionDate)
+    .maybeSingle()
+  if (existing.error) throw new Error(existing.error.message)
+  if (existing.data?.id) return existing.data.id as string
+
+  throw new Error('Failed to create or load daily session id')
+}
+
+async function resolvePlatformIds(
+  sessionId: string,
+  progress: AppState['dailyProgress']
+): Promise<Map<string, string>> {
+  const platformPayload = PLATFORM_ORDER.map((platform) => {
+    const section = progress.platforms[platform]
+    return {
+      session_id: sessionId,
+      platform,
+      name: section?.name ?? platform,
+      estimated_minutes: section?.estimatedMinutes ?? 0,
+      purpose: section?.purpose ?? null,
+      notes: section?.notes ?? '',
+      completed: section?.completed ?? false,
+    }
+  })
+
+  const upsertRes = await supabase
+    .from('session_platforms')
+    .upsert(platformPayload, { onConflict: 'session_id,platform' })
+    .select('id, platform')
+
+  if (upsertRes.error) throw new Error(upsertRes.error.message)
+
+  const map = new Map<string, string>()
+  for (const row of upsertRes.data ?? []) {
+    map.set(row.platform as string, row.id as string)
+  }
+
+  if (map.size < PLATFORM_ORDER.length) {
+    const fetchRes = await supabase
+      .from('session_platforms')
+      .select('id, platform')
+      .eq('session_id', sessionId)
+    if (fetchRes.error) throw new Error(fetchRes.error.message)
+    for (const row of fetchRes.data ?? []) {
+      map.set(row.platform as string, row.id as string)
+    }
+  }
+
+  if (map.size === 0) {
+    throw new Error('Failed to resolve session platform ids')
+  }
+
+  return map
+}
+
 /** Lightweight revision check for focus refetch. */
 export async function getCloudRevision(userId: string): Promise<number> {
   const today = todayKey()
@@ -65,6 +150,7 @@ export async function loadAppStateFromCloud(
   username: string | null
 ): Promise<CloudLoadResult> {
   const today = todayKey()
+  const local = normalizeState(loadState(username))
 
   const [
     settingsRes,
@@ -117,25 +203,24 @@ export async function loadAppStateFromCloud(
   const revenueRows = (revenueRes.data ?? []) as RevenueRow[]
   const notificationRows = (notificationsRes.data ?? []) as NotificationRow[]
 
-  const cloudHasData =
-    strategies.length > 0 ||
+  // Strategies alone (written by a blank first save) are not enough to treat cloud as canonical
+  const cloudHasProgressData =
     !!session ||
     historyRows.length > 0 ||
     revenueRows.length > 0 ||
-    notificationRows.length > 0
+    notificationRows.length > 0 ||
+    strategies.length > 0
 
-  if (!cloudHasData) {
-    const local = normalizeState(loadState(username))
+  if (!cloudHasProgressData) {
     if (localHasMeaningfulData(local)) {
-      const seeded = {
-        ...local,
-        updatedAt: local.updatedAt ?? Date.now(),
-      }
-      await saveAppStateToCloud(userId, seeded)
-      saveState(seeded, username)
+      const seeded = { ...local, updatedAt: local.updatedAt ?? Date.now() }
+      const saved = await saveAppStateToCloud(userId, seeded)
+      const state = saved.ok ? saved.state : seeded
+      saveState(state, username)
+      console.info('[sync] Seeded cloud from local device data')
       return {
-        state: seeded,
-        cloudUpdatedAt: seeded.updatedAt ?? Date.now(),
+        state,
+        cloudUpdatedAt: state.updatedAt ?? Date.now(),
         source: 'local-seed',
       }
     }
@@ -194,7 +279,7 @@ export async function loadAppStateFromCloud(
     ...revenueRows.map((r) => r.updated_at),
   ])
 
-  const state = normalizeState({
+  let cloudState = normalizeState({
     settings,
     dailyProgress,
     history: historyRows.map(historyFromRow),
@@ -204,8 +289,36 @@ export async function loadAppStateFromCloud(
     updatedAt: cloudUpdatedAt || Date.now(),
   })
 
-  saveState(state, username)
-  return { state, cloudUpdatedAt: state.updatedAt ?? cloudUpdatedAt, source: 'cloud' }
+  const localScore = progressScore(local)
+  const cloudScore = progressScore(cloudState)
+
+  // Prefer richer local progress so a blank phone/laptop cannot wipe real work
+  if (localScore > cloudScore && localHasMeaningfulData(local)) {
+    const seeded = {
+      ...local,
+      updatedAt: Math.max(local.updatedAt ?? 0, cloudUpdatedAt, Date.now()),
+    }
+    const saved = await saveAppStateToCloud(userId, seeded)
+    const state = saved.ok ? saved.state : seeded
+    saveState(state, username)
+    console.info('[sync] Local progress ahead of cloud — uploaded local', {
+      localScore,
+      cloudScore,
+    })
+    return {
+      state,
+      cloudUpdatedAt: state.updatedAt ?? Date.now(),
+      source: 'local-seed',
+    }
+  }
+
+  saveState(cloudState, username)
+  console.info('[sync] Loaded cloud state', { cloudScore, localScore, date: cloudState.dailyProgress.date })
+  return {
+    state: cloudState,
+    cloudUpdatedAt: cloudState.updatedAt ?? cloudUpdatedAt,
+    source: 'cloud',
+  }
 }
 
 export async function saveAppStateToCloud(
@@ -213,7 +326,6 @@ export async function saveAppStateToCloud(
   state: AppState
 ): Promise<{ ok: true; state: AppState } | { ok: false; error: string }> {
   try {
-    // Remap non-UUID revenue/notification ids so they fit uuid PKs
     let remapped = false
     const revenue = state.revenue.map((r) => {
       if (isUuid(r.id)) return r
@@ -227,7 +339,7 @@ export async function saveAppStateToCloud(
     })
     const nextState: AppState = remapped
       ? { ...state, revenue, notifications, updatedAt: state.updatedAt ?? Date.now() }
-      : state
+      : { ...state, updatedAt: state.updatedAt ?? Date.now() }
 
     const settings = nextState.settings
     const settingsPayload = {
@@ -246,7 +358,7 @@ export async function saveAppStateToCloud(
     const { error: settingsError } = await supabase
       .from('user_settings')
       .upsert(settingsPayload, { onConflict: 'user_id' })
-    if (settingsError) throw new Error(settingsError.message)
+    if (settingsError) throw new Error(`user_settings: ${settingsError.message}`)
 
     const strategyRows = strategiesFromSettings(userId, settings)
     const { error: strategyError } = await supabase.from('platform_strategies').upsert(
@@ -260,55 +372,12 @@ export async function saveAppStateToCloud(
       })),
       { onConflict: 'user_id,platform' }
     )
-    if (strategyError) throw new Error(strategyError.message)
+    if (strategyError) throw new Error(`platform_strategies: ${strategyError.message}`)
 
     const progress = nextState.dailyProgress
     const sessionDate = toDateString(progress.date) ?? todayKey()
-
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('daily_sessions')
-      .upsert(
-        {
-          user_id: userId,
-          date: sessionDate,
-          day_status: progress.dayStatus,
-          day_started_at: progress.dayStartedAt,
-          day_finished_at: progress.dayFinishedAt,
-          daily_notes: progress.dailyNotes ?? '',
-          confetti_shown: progress.confettiShown,
-          total_time_worked_seconds: progress.totalTimeWorkedSeconds ?? 0,
-        },
-        { onConflict: 'user_id,date' }
-      )
-      .select('id')
-      .single()
-    if (sessionError) throw new Error(sessionError.message)
-    const sessionId = sessionData.id as string
-
-    // Upsert platforms, then checklist/counters
-    const platformPayload = PLATFORM_ORDER.map((platform) => {
-      const section = progress.platforms[platform]
-      return {
-        session_id: sessionId,
-        platform,
-        name: section?.name ?? platform,
-        estimated_minutes: section?.estimatedMinutes ?? 0,
-        purpose: section?.purpose ?? null,
-        notes: section?.notes ?? '',
-        completed: section?.completed ?? false,
-      }
-    })
-
-    const { data: platformRows, error: platformError } = await supabase
-      .from('session_platforms')
-      .upsert(platformPayload, { onConflict: 'session_id,platform' })
-      .select('id, platform')
-    if (platformError) throw new Error(platformError.message)
-
-    const platformIdByKey = new Map<string, string>()
-    for (const row of platformRows ?? []) {
-      platformIdByKey.set(row.platform as string, row.id as string)
-    }
+    const sessionId = await resolveSessionId(userId, sessionDate, progress)
+    const platformIdByKey = await resolvePlatformIds(sessionId, progress)
 
     const checklistPayload: Array<{
       session_platform_id: string
@@ -353,14 +422,14 @@ export async function saveAppStateToCloud(
       const { error } = await supabase
         .from('session_checklist_items')
         .upsert(checklistPayload, { onConflict: 'session_platform_id,item_key' })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`checklist: ${error.message}`)
     }
 
     if (counterPayload.length > 0) {
       const { error } = await supabase
         .from('session_counters')
         .upsert(counterPayload, { onConflict: 'session_platform_id,counter_key' })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`counters: ${error.message}`)
     }
 
     const timelinePayload = progress.timeline.map((block) => ({
@@ -379,19 +448,17 @@ export async function saveAppStateToCloud(
       const { error } = await supabase
         .from('session_timeline_blocks')
         .upsert(timelinePayload, { onConflict: 'session_id,platform' })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`timeline: ${error.message}`)
     }
 
-    // History upsert by (user_id, date)
     if (nextState.history.length > 0) {
       const historyPayload = nextState.history.map((entry) => historyToRow(userId, entry))
       const { error } = await supabase
         .from('history_entries')
         .upsert(historyPayload, { onConflict: 'user_id,date' })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`history: ${error.message}`)
     }
 
-    // Revenue: upsert by id, delete orphans
     const revenueIds = revenue.map((r) => r.id)
     if (revenue.length > 0) {
       const revenuePayload = revenue.map((r) => ({
@@ -407,7 +474,7 @@ export async function saveAppStateToCloud(
       const { error } = await supabase.from('revenue_entries').upsert(revenuePayload, {
         onConflict: 'id',
       })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`revenue: ${error.message}`)
     }
 
     const { data: existingRevenue, error: existingRevenueError } = await supabase
@@ -424,7 +491,6 @@ export async function saveAppStateToCloud(
       if (error) throw new Error(error.message)
     }
 
-    // Notifications: upsert by id, delete orphans
     const notificationIds = notifications.map((n) => n.id)
     if (notifications.length > 0) {
       const notificationPayload = notifications.map((n) => ({
@@ -440,7 +506,7 @@ export async function saveAppStateToCloud(
       const { error } = await supabase.from('notifications').upsert(notificationPayload, {
         onConflict: 'id',
       })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`notifications: ${error.message}`)
     }
 
     const { data: existingNotifs, error: existingNotifsError } = await supabase
@@ -457,6 +523,11 @@ export async function saveAppStateToCloud(
       if (error) throw new Error(error.message)
     }
 
+    console.info('[sync] Saved to cloud', {
+      date: sessionDate,
+      score: progressScore(nextState),
+      counters: counterPayload.filter((c) => c.completed > 0).length,
+    })
     return { ok: true, state: nextState }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -465,15 +536,30 @@ export async function saveAppStateToCloud(
   }
 }
 
-/** Fetch cloud state only if newer than localUpdatedAt. */
+/** Fetch cloud state only if newer / richer than local. */
 export async function refreshAppStateIfNewer(
   userId: string,
   username: string | null,
-  localUpdatedAt: number
+  localUpdatedAt: number,
+  localState?: AppState
 ): Promise<AppState | null> {
   const revision = await getCloudRevision(userId)
-  if (revision <= localUpdatedAt) return null
+  const local = localState ?? normalizeState(loadState(username))
+  const localScore = progressScore(local)
+
+  // Always pull when cloud revision is newer; also pull when local is blank
+  // so a second device picks up work from the first.
+  if (revision <= localUpdatedAt && localScore > 0) {
+    return null
+  }
+
   const loaded = await loadAppStateFromCloud(userId, username)
-  if ((loaded.state.updatedAt ?? 0) <= localUpdatedAt) return null
+  if (progressScore(loaded.state) < localScore) return null
+  if (
+    (loaded.state.updatedAt ?? 0) <= localUpdatedAt &&
+    progressScore(loaded.state) <= localScore
+  ) {
+    return null
+  }
   return loaded.state
 }

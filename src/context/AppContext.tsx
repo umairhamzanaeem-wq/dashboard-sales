@@ -26,6 +26,7 @@ import {
   refreshAppStateIfNewer,
   saveAppStateToCloud,
 } from '@/lib/supabase-app-state'
+import { localHasMeaningfulData, progressScore } from '@/lib/supabase-mappers'
 import { applyTheme, themeAccent } from '@/lib/theme'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -609,6 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hydrated = useRef(false)
   const cloudReady = useRef(false)
   const savingCloud = useRef(false)
+  const cloudDirty = useRef(false)
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notifiedSlots = useRef<Set<string>>(new Set())
   const updatedAtRef = useRef(0)
@@ -618,6 +620,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     stateRef.current = state
     updatedAtRef.current = state.updatedAt ?? 0
   }, [state])
+
+  const flushCloud = useCallback(async () => {
+    if (!userId || !cloudReady.current || !hydrated.current) return
+    if (savingCloud.current) {
+      cloudDirty.current = true
+      return
+    }
+
+    const snapshot = stateRef.current
+    // Don't let a blank device publish an empty day over real cloud data
+    if (!localHasMeaningfulData(snapshot) && progressScore(snapshot) === 0) {
+      return
+    }
+
+    savingCloud.current = true
+    cloudDirty.current = false
+    try {
+      const result = await saveAppStateToCloud(userId, snapshot)
+      if (!result.ok) {
+        console.error('[sync] Cloud save failed:', result.error)
+        cloudDirty.current = true
+        return
+      }
+      const remapped =
+        result.state.revenue.some((r, i) => r.id !== snapshot.revenue[i]?.id) ||
+        result.state.notifications.some((n, i) => n.id !== snapshot.notifications[i]?.id)
+      if (remapped) {
+        hydrated.current = false
+        dispatch({ type: 'HYDRATE', state: normalizeState(result.state) })
+        hydrated.current = true
+        saveState(result.state, username)
+      }
+    } finally {
+      savingCloud.current = false
+      if (cloudDirty.current) {
+        cloudDirty.current = false
+        void flushCloud()
+      }
+    }
+  }, [userId, username])
 
   // Load from Supabase when the authenticated user is available / changes
   useEffect(() => {
@@ -647,6 +689,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           hydrated.current = true
           cloudReady.current = true
+          // Push whatever we ended with (covers local-seed path + post-ENSURE_TODAY)
+          window.setTimeout(() => {
+            void flushCloud()
+          }, 100)
         }
       }
     })()
@@ -654,55 +700,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [userId, username])
+  }, [userId, username, flushCloud])
 
-  // Persist locally immediately; debounce cloud writes (with periodic flush while dirty)
+  // Persist locally immediately; debounce cloud writes
   useEffect(() => {
     if (!hydrated.current) return
     saveState(state, username)
 
     if (!userId || !cloudReady.current) return
 
-    const flushCloud = () => {
-      void (async () => {
-        if (savingCloud.current) return
-        savingCloud.current = true
-        try {
-          const snapshot = stateRef.current
-          const result = await saveAppStateToCloud(userId, snapshot)
-          if (!result.ok) return
-          const remapped =
-            result.state.revenue.some((r, i) => r.id !== snapshot.revenue[i]?.id) ||
-            result.state.notifications.some((n, i) => n.id !== snapshot.notifications[i]?.id)
-          if (remapped) {
-            hydrated.current = false
-            dispatch({ type: 'HYDRATE', state: normalizeState(result.state) })
-            hydrated.current = true
-            saveState(result.state, username)
-          }
-        } finally {
-          savingCloud.current = false
-        }
-      })()
-    }
-
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current)
-    cloudSaveTimer.current = setTimeout(flushCloud, 600)
+    cloudSaveTimer.current = setTimeout(() => {
+      void flushCloud()
+    }, 250)
 
     return () => {
       if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current)
     }
-  }, [state, username, userId])
+  }, [state, username, userId, flushCloud])
 
-  // Ensure in-progress days still sync during continuous timeline ticks
+  // Periodic flush + flush when leaving the tab (phone switches / laptop sleep)
   useEffect(() => {
     if (!userId) return
-    const id = setInterval(() => {
-      if (!hydrated.current || !cloudReady.current || savingCloud.current) return
-      void saveAppStateToCloud(userId, stateRef.current)
-    }, 8000)
-    return () => clearInterval(id)
-  }, [userId])
+
+    const intervalId = setInterval(() => {
+      void flushCloud()
+    }, 5000)
+
+    const onHide = () => {
+      void flushCloud()
+    }
+    window.addEventListener('pagehide', onHide)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') onHide()
+    })
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('pagehide', onHide)
+    }
+  }, [userId, flushCloud])
 
   // Pull newer cloud data when returning to the tab
   useEffect(() => {
@@ -711,7 +748,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pullIfNewer = () => {
       void (async () => {
         try {
-          const newer = await refreshAppStateIfNewer(userId, username, updatedAtRef.current)
+          // Flush local first so we don't lose in-flight clicks
+          await flushCloud()
+          const newer = await refreshAppStateIfNewer(
+            userId,
+            username,
+            updatedAtRef.current,
+            stateRef.current
+          )
           if (!newer) return
           hydrated.current = false
           cloudReady.current = false
@@ -736,7 +780,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [userId, username])
+  }, [userId, username, flushCloud])
 
   // Live sync from browser extension (popup updates while dashboard is open)
   useEffect(() => {
