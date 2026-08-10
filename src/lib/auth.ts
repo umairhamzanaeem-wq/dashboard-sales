@@ -1,28 +1,66 @@
-import {
-  getUserAccount,
-  loadUsersRegistry,
-  validateUserCredentials,
-  type UserRole,
-} from '@/lib/users'
+import { getUserAccount, type UserRole } from '@/lib/users'
 
-/** @deprecated Prefer users registry — kept for extension fallback reads */
+export type { UserRole }
+
+/** @deprecated Local registry fallback — not used for new Supabase logins */
 export const USERS: Record<string, string> = {
   admin: 'admin',
   saad: 'saad',
   umair: 'umair',
 }
 
+/** @deprecated Legacy localStorage session key — AuthContext no longer writes this */
 export const AUTH_STORAGE_KEY = 'bd-auth-session'
 
+/** Authenticated app user (Supabase Auth + public.profiles) */
 export interface AuthSession {
+  id: string
+  email: string
   username: string
-  /** Basic auth token for API calls */
+  displayName: string
+  role: UserRole
+  avatarUrl: string | null
+}
+
+/** @deprecated Legacy local session shape */
+export interface LegacyAuthSession {
+  username: string
   token: string
   role: UserRole
 }
 
-export function getUserProfile(username?: string | null) {
+export interface UserProfileView {
+  displayName: string
+  avatar?: string
+  role: UserRole
+}
+
+/** Synced from AuthContext for getUserProfile() helpers */
+let activeAuthProfile: AuthSession | null = null
+
+export function setActiveAuthProfile(profile: AuthSession | null) {
+  activeAuthProfile = profile
+}
+
+export function getActiveAuthProfile(): AuthSession | null {
+  return activeAuthProfile
+}
+
+/**
+ * Display helper for avatars / sidebar.
+ * Prefers the live Supabase Auth profile; falls back to local users registry.
+ */
+export function getUserProfile(username?: string | null): UserProfileView {
   const user = username?.trim().toLowerCase() ?? ''
+
+  if (activeAuthProfile && (!user || user === activeAuthProfile.username.toLowerCase())) {
+    return {
+      displayName: activeAuthProfile.displayName,
+      avatar: activeAuthProfile.avatarUrl ?? undefined,
+      role: activeAuthProfile.role,
+    }
+  }
+
   const account = user ? getUserAccount(user) : null
   if (account) {
     return {
@@ -31,52 +69,49 @@ export function getUserProfile(username?: string | null) {
       role: account.role,
     }
   }
+
   return {
     displayName: user ? user.charAt(0).toUpperCase() + user.slice(1) : 'User',
-    role: 'user' as UserRole,
+    role: 'user',
   }
 }
 
-export function validateLogin(username: string, password: string): boolean {
-  // Ensure registry is seeded
-  loadUsersRegistry()
-  return !!validateUserCredentials(username, password)
+/** @deprecated Use Supabase Auth */
+export function validateLogin(_username: string, _password: string): boolean {
+  console.warn('[auth] validateLogin is deprecated; use Supabase Auth')
+  return false
 }
 
-export function createSession(username: string, password: string): AuthSession {
-  const user = username.trim().toLowerCase()
-  const account = validateUserCredentials(user, password)
-  return {
-    username: user,
-    token: btoa(`${user}:${password}`),
-    role: account?.role ?? 'user',
-  }
+/** @deprecated */
+export function createSession(_username: string, _password: string): LegacyAuthSession {
+  throw new Error('createSession is deprecated; use Supabase Auth')
 }
 
-export function loadSession(): AuthSession | null {
+/** @deprecated Legacy localStorage session reader */
+export function loadSession(): LegacyAuthSession | null {
   try {
-    loadUsersRegistry()
     const raw = localStorage.getItem(AUTH_STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as AuthSession
-    if (!parsed.username || !parsed.token) return null
-    const account = getUserAccount(parsed.username)
-    if (!account) return null
-    // Keep role fresh from registry
-    return {
-      username: parsed.username,
-      token: parsed.token,
-      role: account.role,
-    }
+    return JSON.parse(raw) as LegacyAuthSession
   } catch {
     return null
   }
 }
 
-export function saveSession(session: AuthSession): void {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+/** @deprecated */
+export function saveSession(_session: LegacyAuthSession): void {
+  console.warn('[auth] saveSession is deprecated; Supabase manages the session')
 }
 
+export function clearLegacyAuthSession(): void {
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @deprecated */
 export function clearSession(): void {
-  localStorage.removeItem(AUTH_STORAGE_KEY)
+  clearLegacyAuthSession()
 }

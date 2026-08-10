@@ -48,8 +48,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     ? [...NAV, { to: '/admin', label: 'Admin', icon: Shield }]
     : NAV
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 

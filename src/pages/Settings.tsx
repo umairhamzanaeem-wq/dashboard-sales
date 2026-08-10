@@ -56,12 +56,12 @@ export function SettingsPage() {
     setTimeout(() => setMsg(''), 3500)
   }
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
       flash('New passwords do not match')
       return
     }
-    const result = changePassword(currentPassword, newPassword)
+    const result = await changePassword(currentPassword, newPassword)
     if (!result.ok) {
       flash(result.error || 'Could not change password')
       return

@@ -15,9 +15,9 @@ import {
 import type { ThemeMode } from '@/types'
 
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, loading: authLoading, login } = useAuth()
   const navigate = useNavigate()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -28,19 +28,30 @@ export function LoginPage() {
     applyTheme(theme)
   }, [theme])
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading session…
+      </div>
+    )
+  }
+
   if (isAuthenticated) return <Navigate to="/" replace />
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const result = login(username, password)
-    setLoading(false)
-    if (!result.ok) {
-      setError(result.error ?? 'Login failed')
-      return
+    try {
+      const result = await login(email, password)
+      if (!result.ok) {
+        setError(result.error ?? 'Login failed')
+        return
+      }
+      navigate('/', { replace: true })
+    } finally {
+      setLoading(false)
     }
-    navigate('/', { replace: true })
   }
 
   const label = THEME_OPTIONS.find((t) => t.id === theme)?.label ?? 'Theme'
@@ -74,13 +85,14 @@ export function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="username"
-              autoComplete="username"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
