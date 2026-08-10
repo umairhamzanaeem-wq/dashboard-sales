@@ -21,6 +21,11 @@ import type {
 } from '@/types'
 import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
 import { loadState, saveState, clearState, importState, normalizeState } from '@/lib/storage'
+import {
+  loadAppStateFromCloud,
+  refreshAppStateIfNewer,
+  saveAppStateToCloud,
+} from '@/lib/supabase-app-state'
 import { applyTheme, themeAccent } from '@/lib/theme'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -599,35 +604,139 @@ const AppContext = createContext<AppContextValue | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const username = session?.username ?? null
+  const userId = session?.id ?? null
   const [state, dispatch] = useReducer(rootReducer, undefined, () => loadState(username))
   const hydrated = useRef(false)
+  const cloudReady = useRef(false)
+  const savingCloud = useRef(false)
+  const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notifiedSlots = useRef<Set<string>>(new Set())
   const updatedAtRef = useRef(0)
+  const stateRef = useRef(state)
 
   useEffect(() => {
+    stateRef.current = state
     updatedAtRef.current = state.updatedAt ?? 0
-  }, [state.updatedAt])
+  }, [state])
 
+  // Load from Supabase when the authenticated user is available / changes
   useEffect(() => {
-    dispatch({ type: 'ENSURE_TODAY' })
-    hydrated.current = true
-  }, [])
+    if (!userId) {
+      cloudReady.current = false
+      hydrated.current = true
+      dispatch({ type: 'ENSURE_TODAY' })
+      return
+    }
 
-  // Reload dashboard data when switching accounts
-  const prevUsername = useRef(username)
-  useEffect(() => {
-    if (prevUsername.current === username) return
-    prevUsername.current = username
+    let cancelled = false
     hydrated.current = false
-    dispatch({ type: 'HYDRATE', state: normalizeState(loadState(username)) })
-    dispatch({ type: 'ENSURE_TODAY' })
-    hydrated.current = true
-  }, [username])
+    cloudReady.current = false
 
+    ;(async () => {
+      try {
+        const loaded = await loadAppStateFromCloud(userId, username)
+        if (cancelled) return
+        dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
+        dispatch({ type: 'ENSURE_TODAY' })
+      } catch (err) {
+        console.error('[sync] Failed to load cloud state', err)
+        if (cancelled) return
+        dispatch({ type: 'HYDRATE', state: normalizeState(loadState(username)) })
+        dispatch({ type: 'ENSURE_TODAY' })
+      } finally {
+        if (!cancelled) {
+          hydrated.current = true
+          cloudReady.current = true
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, username])
+
+  // Persist locally immediately; debounce cloud writes (with periodic flush while dirty)
   useEffect(() => {
     if (!hydrated.current) return
     saveState(state, username)
-  }, [state, username])
+
+    if (!userId || !cloudReady.current) return
+
+    const flushCloud = () => {
+      void (async () => {
+        if (savingCloud.current) return
+        savingCloud.current = true
+        try {
+          const snapshot = stateRef.current
+          const result = await saveAppStateToCloud(userId, snapshot)
+          if (!result.ok) return
+          const remapped =
+            result.state.revenue.some((r, i) => r.id !== snapshot.revenue[i]?.id) ||
+            result.state.notifications.some((n, i) => n.id !== snapshot.notifications[i]?.id)
+          if (remapped) {
+            hydrated.current = false
+            dispatch({ type: 'HYDRATE', state: normalizeState(result.state) })
+            hydrated.current = true
+            saveState(result.state, username)
+          }
+        } finally {
+          savingCloud.current = false
+        }
+      })()
+    }
+
+    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current)
+    cloudSaveTimer.current = setTimeout(flushCloud, 600)
+
+    return () => {
+      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current)
+    }
+  }, [state, username, userId])
+
+  // Ensure in-progress days still sync during continuous timeline ticks
+  useEffect(() => {
+    if (!userId) return
+    const id = setInterval(() => {
+      if (!hydrated.current || !cloudReady.current || savingCloud.current) return
+      void saveAppStateToCloud(userId, stateRef.current)
+    }, 8000)
+    return () => clearInterval(id)
+  }, [userId])
+
+  // Pull newer cloud data when returning to the tab
+  useEffect(() => {
+    if (!userId) return
+
+    const pullIfNewer = () => {
+      void (async () => {
+        try {
+          const newer = await refreshAppStateIfNewer(userId, username, updatedAtRef.current)
+          if (!newer) return
+          hydrated.current = false
+          cloudReady.current = false
+          dispatch({ type: 'HYDRATE', state: normalizeState(newer) })
+          dispatch({ type: 'ENSURE_TODAY' })
+          hydrated.current = true
+          cloudReady.current = true
+        } catch (err) {
+          console.error('[sync] Focus refresh failed', err)
+        }
+      })()
+    }
+
+    const onFocus = () => pullIfNewer()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') pullIfNewer()
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [userId, username])
 
   // Live sync from browser extension (popup updates while dashboard is open)
   useEffect(() => {
