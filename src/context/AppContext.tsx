@@ -25,6 +25,7 @@ import {
   getCloudRevision,
   loadAppStateFromCloud,
   refreshAppStateIfNewer,
+  restoreOutreachFromDate,
   saveAppStateToCloud,
 } from '@/lib/supabase-app-state'
 import { subscribeToAccountSync } from '@/lib/supabase-live-sync'
@@ -579,6 +580,10 @@ interface AppContextValue {
   updateSettings: (settings: Partial<AppSettings>) => void
   resetDashboard: () => void
   importDashboard: (json: string) => void
+  /** Restore a past day's outreach (e.g. 2026-08-10) onto today from Supabase */
+  restoreOutreachDay: (
+    sourceDate: string
+  ) => Promise<{ ok: boolean; error?: string; summary?: string }>
   saveToday: () => void
   startDay: () => void
   pauseDay: () => void
@@ -746,7 +751,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         lastSeenCloudRevision.current = loaded.cloudUpdatedAt || (await getCloudRevision(userId))
         dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
-        dispatch({ type: 'ENSURE_TODAY' })
+        if (loaded.state.dailyProgress.date !== todayKey()) {
+          dispatch({ type: 'ENSURE_TODAY' })
+        }
+        // Auto-attempt Aug 10 recovery when today still looks empty
+        if (progressScore(loaded.state) < 5) {
+          const recovered = await restoreOutreachFromDate(userId, username, '2026-08-10')
+          if (!cancelled && recovered.ok) {
+            dispatch({ type: 'HYDRATE', state: normalizeState(recovered.state) })
+            console.info('[sync]', recovered.summary)
+          }
+        }
       } catch (err) {
         console.error('[sync] Failed to load cloud state', err)
         if (cancelled) return
@@ -1023,6 +1038,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const imported = importState(json)
       dispatch({ type: 'IMPORT', state: imported })
     }, []),
+    restoreOutreachDay: useCallback(
+      async (sourceDate: string) => {
+        if (!userId) return { ok: false, error: 'Not signed in' }
+        const result = await restoreOutreachFromDate(userId, username, sourceDate)
+        if (!result.ok) return { ok: false, error: result.error }
+        hydrated.current = false
+        dispatch({ type: 'HYDRATE', state: normalizeState(result.state) })
+        hydrated.current = true
+        saveState(result.state, username)
+        return { ok: true, summary: result.summary }
+      },
+      [userId, username]
+    ),
     saveToday: useCallback(() => dispatch({ type: 'SAVE_DAY_TO_HISTORY' }), []),
     startDay: useCallback(() => dispatch({ type: 'START_DAY' }), []),
     pauseDay: useCallback(() => dispatch({ type: 'PAUSE_DAY' }), []),

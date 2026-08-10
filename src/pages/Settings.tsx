@@ -15,6 +15,7 @@ import {
   KeyRound,
   UserRound,
   Shield,
+  History,
 } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
@@ -86,7 +87,7 @@ async function fileToAvatarDataUrl(file: File): Promise<string> {
 }
 
 export function SettingsPage() {
-  const { state, settings, updateSettings, resetDashboard, importDashboard, dispatch } = useApp()
+  const { state, settings, updateSettings, resetDashboard, importDashboard, dispatch, restoreOutreachDay } = useApp()
   const {
     username,
     displayName,
@@ -109,6 +110,7 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [nameDraft, setNameDraft] = useState(displayName ?? '')
   const [profileBusy, setProfileBusy] = useState(false)
+  const [recoverBusy, setRecoverBusy] = useState(false)
 
   const targets = settings.dailyTargets
 
@@ -347,6 +349,45 @@ export function SettingsPage() {
       {msg && (
         <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm text-primary">{msg}</div>
       )}
+
+      {/* Recover Aug 10 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" /> Recover Aug 10 outreach
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Pull the <strong className="text-foreground">2026-08-10</strong> session from Supabase and apply it to today.
+            Use this if your mid-day progress disappeared after sync.
+          </p>
+          <Button
+            disabled={recoverBusy}
+            onClick={async () => {
+              setRecoverBusy(true)
+              try {
+                const result = await restoreOutreachDay('2026-08-10')
+                if (!result.ok) {
+                  flash(result.error || 'Could not restore Aug 10 outreach')
+                  return
+                }
+                flash(result.summary || 'Aug 10 outreach restored')
+              } finally {
+                setRecoverBusy(false)
+              }
+            }}
+          >
+            {recoverBusy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Restoring…
+              </>
+            ) : (
+              'Restore Aug 10 to today'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Profile */}
       <Card>

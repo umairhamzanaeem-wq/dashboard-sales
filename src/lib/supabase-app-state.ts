@@ -17,6 +17,7 @@ import {
   historyToRow,
   isUuid,
   localHasMeaningfulData,
+  mergeDailyProgressMax,
   mergeStatesByMaxProgress,
   notificationFromRow,
   PLATFORM_ORDER,
@@ -678,4 +679,265 @@ export async function refreshAppStateIfNewer(
     return null
   }
   return loaded
+}
+
+async function loadSessionGraphForDate(
+  userId: string,
+  date: string,
+  settings: ReturnType<typeof settingsFromCloud>
+): Promise<AppState['dailyProgress'] | null> {
+  const { data: session, error } = await supabase
+    .from('daily_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!session) return null
+
+  const sessionRow = session as DailySessionRow
+  const plats = await supabase.from('session_platforms').select('*').eq('session_id', sessionRow.id)
+  if (plats.error) throw new Error(plats.error.message)
+  const platRows = (plats.data ?? []) as SessionPlatformRow[]
+  const ids = platRows.map((p) => p.id)
+  let checkRows: ChecklistRow[] = []
+  let counterRows: CounterRow[] = []
+  if (ids.length > 0) {
+    const [c1, c2] = await Promise.all([
+      supabase.from('session_checklist_items').select('*').in('session_platform_id', ids),
+      supabase.from('session_counters').select('*').in('session_platform_id', ids),
+    ])
+    if (c1.error) throw new Error(c1.error.message)
+    if (c2.error) throw new Error(c2.error.message)
+    checkRows = (c1.data ?? []) as ChecklistRow[]
+    counterRows = (c2.data ?? []) as CounterRow[]
+  }
+  const tl = await supabase.from('session_timeline_blocks').select('*').eq('session_id', sessionRow.id)
+  if (tl.error) throw new Error(tl.error.message)
+
+  return buildDailyProgressFromCloud({
+    session: sessionRow,
+    platforms: platRows,
+    checklist: checkRows,
+    counters: counterRows,
+    timeline: (tl.data ?? []) as TimelineRow[],
+    settings,
+  })
+}
+
+/**
+ * Restore a specific calendar day's outreach onto today (and persist to cloud).
+ * Used to recover wiped mid-day progress (e.g. 2026-08-10).
+ */
+export async function restoreOutreachFromDate(
+  userId: string,
+  username: string | null,
+  sourceDate: string
+): Promise<
+  | { ok: true; state: AppState; summary: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const today = todayKey()
+    const current = normalizeState(loadState(username))
+
+    const { data: settingsRow } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+    const { data: strategies } = await supabase
+      .from('platform_strategies')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order', { ascending: true })
+
+    const settings = settingsFromCloud(
+      settingsRow as UserSettingsRow | null,
+      (strategies ?? []) as PlatformStrategyRow[]
+    )
+
+    const sourceDay = await loadSessionGraphForDate(userId, sourceDate, settings)
+
+    // Also try history entry for that date
+    const { data: historyRow } = await supabase
+      .from('history_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', sourceDate)
+      .maybeSingle()
+
+    if (!sourceDay && !historyRow) {
+      return {
+        ok: false,
+        error: `No outreach session or history found in Supabase for ${sourceDate}. It may have been overwritten to zeros.`,
+      }
+    }
+
+    let restoredProgress = sourceDay
+      ? { ...sourceDay, date: today }
+      : current.dailyProgress
+
+    // If session graph exists but all counters are 0, still keep day status / notes from source
+    const sourceScore = sourceDay
+      ? progressScore({
+          dailyProgress: sourceDay,
+          history: [],
+          revenue: [],
+        })
+      : 0
+
+    if (historyRow && sourceScore === 0) {
+      // Rebuild minimal progress markers from history metrics into linkedin/facebook counters
+      const hist = historyFromRow(historyRow as HistoryRow)
+      const base = createDefaultState().dailyProgress
+      const platforms = { ...current.dailyProgress.platforms }
+      if (platforms.linkedin_saad) {
+        platforms.linkedin_saad = {
+          ...platforms.linkedin_saad,
+          counters: platforms.linkedin_saad.counters.map((c) => {
+            if (c.id === 'connections') return { ...c, completed: hist.connections }
+            if (c.id === 'followups') return { ...c, completed: hist.followUps }
+            return c
+          }),
+        }
+      }
+      if (platforms.facebook) {
+        platforms.facebook = {
+          ...platforms.facebook,
+          counters: platforms.facebook.counters.map((c) => {
+            if (c.id === 'comments') return { ...c, completed: hist.facebookComments }
+            if (c.id === 'dms') return { ...c, completed: hist.facebookDms }
+            return c
+          }),
+        }
+      }
+      if (platforms.upwork) {
+        platforms.upwork = {
+          ...platforms.upwork,
+          counters: platforms.upwork.counters.map((c) => {
+            if (c.id === 'jobs_reviewed') return { ...c, completed: hist.jobsReviewed }
+            if (c.id === 'proposals') return { ...c, completed: hist.proposalsSent }
+            return c
+          }),
+        }
+      }
+      restoredProgress = {
+        ...base,
+        ...current.dailyProgress,
+        date: today,
+        dayStatus: hist.dayStatus ?? 'in_progress',
+        dayStartedAt: hist.dayStartedAt ?? current.dailyProgress.dayStartedAt,
+        dailyNotes: hist.notes || current.dailyProgress.dailyNotes,
+        totalTimeWorkedSeconds: hist.totalTimeWorkedSeconds || current.dailyProgress.totalTimeWorkedSeconds,
+        platforms,
+      }
+    }
+
+    const merged = mergeStatesByMaxProgress(current, {
+      ...current,
+      dailyProgress: restoredProgress,
+      history: historyRow
+        ? [
+            historyFromRow(historyRow as HistoryRow),
+            ...current.history.filter((h) => h.date !== sourceDate),
+          ]
+        : current.history,
+      updatedAt: Date.now(),
+    })
+
+    // Force the working day onto today with restored counters
+    const finalState: AppState = {
+      ...merged,
+      dailyProgress: {
+        ...mergeDailyProgressMax(merged.dailyProgress, restoredProgress),
+        date: today,
+        dayStatus:
+          restoredProgress.dayStatus === 'not_started'
+            ? 'in_progress'
+            : restoredProgress.dayStatus,
+      },
+      updatedAt: Date.now(),
+    }
+
+    const score = progressScore(finalState)
+    if (score <= progressScore(current) && sourceScore === 0 && !historyRow) {
+      return {
+        ok: false,
+        error: `Found ${sourceDate} session but counters are all 0 (already wiped in the database).`,
+      }
+    }
+
+    const saved = await saveAppStateToCloud(userId, finalState)
+    const state = saved.ok ? saved.state : finalState
+    saveState(state, username)
+    pushLocalSnapshot(state, username)
+
+    const counterTotal = Object.values(state.dailyProgress.platforms).reduce(
+      (sum, p) => sum + p.counters.reduce((s, c) => s + c.completed, 0),
+      0
+    )
+
+    return {
+      ok: true,
+      state,
+      summary: `Restored ${sourceDate} onto ${today} (${counterTotal} counter units, status: ${state.dailyProgress.dayStatus}).`,
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** Inspect what still exists in Supabase for a date (for recovery UI). */
+export async function inspectOutreachDate(
+  userId: string,
+  date: string
+): Promise<{
+  hasSession: boolean
+  hasHistory: boolean
+  counters: Array<{ platform: string; key: string; completed: number; target: number }>
+  dayStatus: string | null
+}> {
+  const { data: session } = await supabase
+    .from('daily_sessions')
+    .select('id, day_status')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .maybeSingle()
+
+  const { data: history } = await supabase
+    .from('history_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .maybeSingle()
+
+  const counters: Array<{ platform: string; key: string; completed: number; target: number }> = []
+  if (session?.id) {
+    const { data: plats } = await supabase
+      .from('session_platforms')
+      .select('id, platform')
+      .eq('session_id', session.id)
+    for (const p of plats ?? []) {
+      const { data: rows } = await supabase
+        .from('session_counters')
+        .select('counter_key, completed, target')
+        .eq('session_platform_id', p.id)
+      for (const c of rows ?? []) {
+        counters.push({
+          platform: p.platform as string,
+          key: c.counter_key as string,
+          completed: Number(c.completed) || 0,
+          target: Number(c.target) || 0,
+        })
+      }
+    }
+  }
+
+  return {
+    hasSession: !!session,
+    hasHistory: !!history,
+    counters,
+    dayStatus: (session?.day_status as string) ?? null,
+  }
 }
