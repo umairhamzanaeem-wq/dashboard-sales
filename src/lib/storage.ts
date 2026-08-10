@@ -7,12 +7,19 @@ import {
 } from './defaults'
 import { normalizeTheme } from './theme'
 import { todayKey } from './utils'
+import { localHasMeaningfulData, mergeStatesByMaxProgress, progressScore } from './supabase-mappers'
 
 const UMAIR_STREAK_FIX_KEY = 'bd-umair-streak-4-v1'
+const SNAPSHOT_PREFIX = 'bd-dashboard-snap-v1:'
 
 export function storageKeyForUser(username?: string | null): string {
   const user = username?.trim().toLowerCase()
   return user ? `bd-dashboard-v1:${user}` : 'bd-dashboard-v1'
+}
+
+function snapshotKeyForUser(username?: string | null): string {
+  const user = username?.trim().toLowerCase() || 'anon'
+  return `${SNAPSHOT_PREFIX}${user}`
 }
 
 const FACEBOOK_FRIEND_REQUEST_TASK = {
@@ -238,6 +245,7 @@ export function saveState(state: AppState, username?: string | null): void {
     const stamped = { ...state, updatedAt: Date.now() }
     const key = storageKeyForUser(username)
     localStorage.setItem(key, JSON.stringify(stamped))
+    pushLocalSnapshot(stamped, username)
 
     // Notify Chrome extension content script (if installed)
     window.dispatchEvent(
@@ -252,6 +260,78 @@ export function saveState(state: AppState, username?: string | null): void {
   } catch (e) {
     console.error('Failed to save state', e)
   }
+}
+
+/** Keep last N meaningful snapshots so a bad sync can be recovered. */
+export function pushLocalSnapshot(state: AppState, username?: string | null): void {
+  try {
+    if (!localHasMeaningfulData(state)) return
+    const key = snapshotKeyForUser(username)
+    const raw = localStorage.getItem(key)
+    const list: AppState[] = raw ? (JSON.parse(raw) as AppState[]) : []
+    const next = [state, ...list.filter((s) => (s.updatedAt ?? 0) !== (state.updatedAt ?? 0))].slice(0, 12)
+    localStorage.setItem(key, JSON.stringify(next))
+  } catch {
+    /* ignore quota */
+  }
+}
+
+/** Best local recovery candidate: current key, legacy keys, and snapshots. */
+export function recoverBestLocalState(username?: string | null): AppState | null {
+  const candidates: AppState[] = []
+
+  const tryParse = (raw: string | null) => {
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as AppState
+      if (parsed?.settings && parsed?.dailyProgress) {
+        candidates.push(normalizeState(parsed))
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  tryParse(localStorage.getItem(storageKeyForUser(username)))
+  tryParse(localStorage.getItem('bd-dashboard-v1'))
+  // Legacy usernames before Supabase email-derived username
+  for (const legacy of ['umair', 'admin', 'saad']) {
+    tryParse(localStorage.getItem(storageKeyForUser(legacy)))
+  }
+
+  try {
+    const snapRaw = localStorage.getItem(snapshotKeyForUser(username))
+    if (snapRaw) {
+      const list = JSON.parse(snapRaw) as AppState[]
+      for (const item of list) {
+        if (item?.settings && item?.dailyProgress) candidates.push(normalizeState(item))
+      }
+    }
+    // Also scan other snapshot keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k?.startsWith(SNAPSHOT_PREFIX)) continue
+      const list = JSON.parse(localStorage.getItem(k) || '[]') as AppState[]
+      for (const item of list) {
+        if (item?.settings && item?.dailyProgress) candidates.push(normalizeState(item))
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (candidates.length === 0) return null
+  return candidates.reduce((best, cur) =>
+    progressScore(cur) > progressScore(best) ? cur : best
+  )
+}
+
+/** Merge current with any recoverable local copies. */
+export function mergeWithLocalRecovery(state: AppState, username?: string | null): AppState {
+  const recovered = recoverBestLocalState(username)
+  if (!recovered) return state
+  if (progressScore(recovered) <= progressScore(state)) return state
+  return mergeStatesByMaxProgress(state, recovered)
 }
 
 export function clearState(username?: string | null): void {

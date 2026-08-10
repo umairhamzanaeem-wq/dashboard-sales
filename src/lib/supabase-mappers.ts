@@ -1,6 +1,7 @@
 import type {
   AppNotification,
   AppSettings,
+  AppState,
   DailyProgress,
   DailyTargets,
   DayStatus,
@@ -491,4 +492,172 @@ export function progressScore(state: {
     if (section.notes?.trim()) score += 1
   }
   return score
+}
+
+const DAY_STATUS_RANK: Record<string, number> = {
+  not_started: 0,
+  in_progress: 1,
+  paused: 1,
+  finished: 2,
+}
+
+/**
+ * Merge two AppStates for the same account, keeping the maximum progress
+ * so a blank device / empty cloud pull cannot wipe real outreach work.
+ */
+export function mergeStatesByMaxProgress(a: AppState, b: AppState): AppState {
+  const scoreA = progressScore(a)
+  const scoreB = progressScore(b)
+  const primary = scoreA >= scoreB ? a : b
+  const secondary = scoreA >= scoreB ? b : a
+
+  // Prefer same-date daily progress with max counters; otherwise keep primary day
+  // and archive secondary day into history if it has work.
+  let dailyProgress = primary.dailyProgress
+  let history = [...(primary.history ?? [])]
+
+  if (a.dailyProgress.date === b.dailyProgress.date) {
+    dailyProgress = mergeDailyProgressMax(a.dailyProgress, b.dailyProgress)
+  } else {
+    const other = secondary.dailyProgress
+    if (localHasMeaningfulData({ ...secondary, dailyProgress: other, history: [], revenue: [], notifications: [] })) {
+      const exists = history.some((h) => h.date === other.date)
+      if (!exists) {
+        const tasksCompleted = (Object.values(other.platforms) as PlatformSection[]).reduce((sum, p) => {
+          return (
+            sum +
+            p.checklist.filter((c) => c.completed).length +
+            p.counters.reduce((s, c) => s + Math.min(c.completed, c.target || c.completed), 0)
+          )
+        }, 0)
+        history = [
+          {
+            date: other.date,
+            completionPercent: 0,
+            tasksCompleted,
+            tasksTotal: 0,
+            connections: other.platforms.linkedin_saad?.counters.find((c) => c.id === 'connections')?.completed ?? 0,
+            followUps: other.platforms.linkedin_saad?.counters.find((c) => c.id === 'followups')?.completed ?? 0,
+            facebookComments: other.platforms.facebook?.counters.find((c) => c.id === 'comments')?.completed ?? 0,
+            facebookDms: other.platforms.facebook?.counters.find((c) => c.id === 'dms')?.completed ?? 0,
+            jobsReviewed: other.platforms.upwork?.counters.find((c) => c.id === 'jobs_reviewed')?.completed ?? 0,
+            proposalsSent: other.platforms.upwork?.counters.find((c) => c.id === 'proposals')?.completed ?? 0,
+            revenue: 0,
+            notes: other.dailyNotes ?? '',
+            totalTimeWorkedSeconds: other.totalTimeWorkedSeconds ?? 0,
+            productivityScore: 0,
+            dayStartedAt: other.dayStartedAt,
+            dayFinishedAt: other.dayFinishedAt,
+            dayStatus: other.dayStatus,
+          },
+          ...history,
+        ]
+      }
+    }
+  }
+
+  // History: keep higher-completion entry per date
+  const historyMap = new Map<string, HistoryEntry>()
+  for (const entry of [...(a.history ?? []), ...(b.history ?? []), ...history]) {
+    const prev = historyMap.get(entry.date)
+    if (!prev || (entry.completionPercent ?? 0) >= (prev.completionPercent ?? 0)) {
+      if (
+        !prev ||
+        (entry.tasksCompleted ?? 0) + (entry.connections ?? 0) + (entry.followUps ?? 0) >=
+          (prev.tasksCompleted ?? 0) + (prev.connections ?? 0) + (prev.followUps ?? 0)
+      ) {
+        historyMap.set(entry.date, entry)
+      }
+    }
+  }
+
+  // Revenue / notifications: union by id
+  const revenueMap = new Map<string, (typeof a.revenue)[0]>()
+  for (const r of [...(a.revenue ?? []), ...(b.revenue ?? [])]) revenueMap.set(r.id, r)
+  const notifMap = new Map<string, (typeof a.notifications)[0]>()
+  for (const n of [...(a.notifications ?? []), ...(b.notifications ?? [])]) notifMap.set(n.id, n)
+
+  return {
+    ...primary,
+    settings: primary.settings,
+    dailyProgress,
+    history: [...historyMap.values()].sort((x, y) => (x.date < y.date ? 1 : -1)),
+    revenue: [...revenueMap.values()],
+    notifications: [...notifMap.values()],
+    updatedAt: Math.max(a.updatedAt ?? 0, b.updatedAt ?? 0, Date.now()),
+    version: 1,
+  }
+}
+
+export function mergeDailyProgressMax(a: DailyProgress, b: DailyProgress): DailyProgress {
+  const platforms = { ...a.platforms }
+  for (const id of PLATFORM_ORDER) {
+    const left = a.platforms[id]
+    const right = b.platforms[id]
+    if (!left && !right) continue
+    if (!left) {
+      platforms[id] = right
+      continue
+    }
+    if (!right) {
+      platforms[id] = left
+      continue
+    }
+    const counterMap = new Map<string, (typeof left.counters)[0]>()
+    for (const c of [...left.counters, ...right.counters]) {
+      const prev = counterMap.get(c.id)
+      if (!prev) {
+        counterMap.set(c.id, { ...c })
+        continue
+      }
+      counterMap.set(c.id, {
+        ...prev,
+        label: prev.label || c.label,
+        completed: Math.max(prev.completed, c.completed),
+        target: Math.max(prev.target, c.target),
+        notes: (prev.notes?.length ?? 0) >= (c.notes?.length ?? 0) ? prev.notes : c.notes,
+      })
+    }
+    const checkMap = new Map<string, (typeof left.checklist)[0]>()
+    for (const item of [...left.checklist, ...right.checklist]) {
+      const prev = checkMap.get(item.id)
+      checkMap.set(item.id, {
+        ...item,
+        completed: !!(prev?.completed || item.completed),
+        label: item.label || prev?.label || item.id,
+      })
+    }
+    platforms[id] = {
+      ...left,
+      name: left.name || right.name,
+      notes: (left.notes?.length ?? 0) >= (right.notes?.length ?? 0) ? left.notes : right.notes,
+      completed: left.completed || right.completed,
+      counters: [...counterMap.values()],
+      checklist: [...checkMap.values()],
+    }
+  }
+
+  const status =
+    (DAY_STATUS_RANK[a.dayStatus] ?? 0) >= (DAY_STATUS_RANK[b.dayStatus] ?? 0)
+      ? a.dayStatus
+      : b.dayStatus
+
+  const timeline =
+    a.timeline.reduce((s, t) => s + t.elapsedSeconds, 0) >=
+    b.timeline.reduce((s, t) => s + t.elapsedSeconds, 0)
+      ? a.timeline
+      : b.timeline
+
+  return {
+    date: a.date,
+    dayStatus: status,
+    dayStartedAt: a.dayStartedAt || b.dayStartedAt,
+    dayFinishedAt: a.dayFinishedAt || b.dayFinishedAt,
+    platforms,
+    timeline,
+    dailyNotes:
+      (a.dailyNotes?.length ?? 0) >= (b.dailyNotes?.length ?? 0) ? a.dailyNotes : b.dailyNotes,
+    confettiShown: a.confettiShown || b.confettiShown,
+    totalTimeWorkedSeconds: Math.max(a.totalTimeWorkedSeconds ?? 0, b.totalTimeWorkedSeconds ?? 0),
+  }
 }

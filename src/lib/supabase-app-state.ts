@@ -1,6 +1,13 @@
 import type { AppState } from '@/types'
 import { createDefaultState } from '@/lib/defaults'
-import { loadState, normalizeState, saveState } from '@/lib/storage'
+import {
+  loadState,
+  mergeWithLocalRecovery,
+  normalizeState,
+  pushLocalSnapshot,
+  recoverBestLocalState,
+  saveState,
+} from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
 import { todayKey } from '@/lib/utils'
 import {
@@ -10,6 +17,7 @@ import {
   historyToRow,
   isUuid,
   localHasMeaningfulData,
+  mergeStatesByMaxProgress,
   notificationFromRow,
   PLATFORM_ORDER,
   progressScore,
@@ -265,7 +273,80 @@ export async function loadAppStateFromCloud(
     timeline = (timelineRes.data ?? []) as TimelineRow[]
   }
 
-  const dailyProgress = buildDailyProgressFromCloud({
+  // Recovery: if today's counters are empty, scan recent sessions for progress still in DB
+  const todayProgressProbe = buildDailyProgressFromCloud({
+    session,
+    platforms,
+    checklist,
+    counters,
+    timeline,
+    settings,
+  })
+  let recoveredDay: AppState['dailyProgress'] | null = null
+  if (
+    !localHasMeaningfulData({
+      dailyProgress: todayProgressProbe,
+      history: [],
+      revenue: [],
+      notifications: [],
+    })
+  ) {
+    const recent = await supabase
+      .from('daily_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(7)
+    if (!recent.error && recent.data) {
+      for (const row of recent.data as DailySessionRow[]) {
+        if (row.id === session?.id) continue
+        const plats = await supabase.from('session_platforms').select('*').eq('session_id', row.id)
+        if (plats.error) continue
+        const platRows = (plats.data ?? []) as SessionPlatformRow[]
+        const ids = platRows.map((p) => p.id)
+        let checkRows: ChecklistRow[] = []
+        let counterRows: CounterRow[] = []
+        if (ids.length > 0) {
+          const [c1, c2] = await Promise.all([
+            supabase.from('session_checklist_items').select('*').in('session_platform_id', ids),
+            supabase.from('session_counters').select('*').in('session_platform_id', ids),
+          ])
+          checkRows = (c1.data ?? []) as ChecklistRow[]
+          counterRows = (c2.data ?? []) as CounterRow[]
+        }
+        const tl = await supabase.from('session_timeline_blocks').select('*').eq('session_id', row.id)
+        const day = buildDailyProgressFromCloud({
+          session: row,
+          platforms: platRows,
+          checklist: checkRows,
+          counters: counterRows,
+          timeline: (tl.data ?? []) as TimelineRow[],
+          settings,
+        })
+        if (
+          localHasMeaningfulData({
+            dailyProgress: day,
+            history: [],
+            revenue: [],
+            notifications: [],
+          })
+        ) {
+          // Same calendar day as today (timezone quirks) → restore as today
+          if (toDateString(row.date) === today) {
+            platforms = platRows
+            checklist = checkRows
+            counters = counterRows
+            timeline = (tl.data ?? []) as TimelineRow[]
+            break
+          }
+          recoveredDay = day
+          break
+        }
+      }
+    }
+  }
+
+  let dailyProgress = buildDailyProgressFromCloud({
     session,
     platforms,
     checklist,
@@ -274,6 +355,24 @@ export async function loadAppStateFromCloud(
     settings,
   })
 
+  // If today is empty but a recent DB day still has outreach, restore it as today
+  // (covers wipe + calendar rollover races).
+  if (
+    recoveredDay &&
+    !localHasMeaningfulData({
+      dailyProgress,
+      history: [],
+      revenue: [],
+      notifications: [],
+    })
+  ) {
+    dailyProgress = { ...recoveredDay, date: today }
+    console.info('[sync] Restored recent session progress onto today', {
+      from: recoveredDay.date,
+      to: today,
+    })
+  }
+
   const cloudUpdatedAt = maxUpdatedAt([
     settingsRow?.updated_at,
     session?.updated_at,
@@ -281,7 +380,7 @@ export async function loadAppStateFromCloud(
     ...revenueRows.map((r) => r.updated_at),
   ])
 
-  let cloudState = normalizeState({
+  const cloudOnly = normalizeState({
     settings,
     dailyProgress,
     history: historyRows.map(historyFromRow),
@@ -290,45 +389,51 @@ export async function loadAppStateFromCloud(
     version: 1,
     updatedAt: cloudUpdatedAt || Date.now(),
   })
+  const cloudOnlyScore = progressScore(cloudOnly)
 
+  let merged = cloudOnly
+  const recovered = recoverBestLocalState(username)
+  if (recovered) merged = mergeStatesByMaxProgress(merged, recovered)
+  merged = mergeStatesByMaxProgress(merged, local)
+  merged = mergeWithLocalRecovery(merged, username)
+
+  const finalScore = progressScore(merged)
   const localScore = progressScore(local)
-  const cloudScore = progressScore(cloudState)
+  const recoveredScore = recovered ? progressScore(recovered) : 0
 
-  // On live refresh, trust cloud when it has data (last-write-wins across devices).
-  // On initial login, still allow richer local data to seed/repair empty cloud.
-  if (
-    !preferCloud &&
-    localScore > cloudScore &&
-    localHasMeaningfulData(local)
-  ) {
-    const seeded = {
-      ...local,
-      updatedAt: Math.max(local.updatedAt ?? 0, cloudUpdatedAt, Date.now()),
-    }
-    const saved = await saveAppStateToCloud(userId, seeded)
-    const state = saved.ok ? saved.state : seeded
+  // Push to cloud only when merge recovered more progress than cloud alone
+  // (prevents wipe loops + avoids poll write storms)
+  if (finalScore > cloudOnlyScore) {
+    pushLocalSnapshot(merged, username)
+    const saved = await saveAppStateToCloud(userId, merged)
+    const state = saved.ok ? saved.state : merged
     saveState(state, username)
-    console.info('[sync] Local progress ahead of cloud — uploaded local', {
+    console.info('[sync] Restored stronger local/snapshot over cloud', {
+      cloudOnlyScore,
       localScore,
-      cloudScore,
+      recoveredScore,
+      final: progressScore(state),
     })
     return {
       state,
-      cloudUpdatedAt: state.updatedAt ?? Date.now(),
+      cloudUpdatedAt: Math.max(cloudUpdatedAt, state.updatedAt ?? 0),
       source: 'local-seed',
     }
   }
 
-  saveState(cloudState, username)
+  if (finalScore > 0) {
+    pushLocalSnapshot(merged, username)
+  }
+  saveState(merged, username)
   console.info('[sync] Loaded cloud state', {
-    cloudScore,
+    cloudOnlyScore,
     localScore,
     preferCloud,
-    date: cloudState.dailyProgress.date,
+    date: merged.dailyProgress.date,
   })
   return {
-    state: cloudState,
-    cloudUpdatedAt: cloudState.updatedAt ?? cloudUpdatedAt,
+    state: merged,
+    cloudUpdatedAt: Math.max(cloudUpdatedAt, merged.updatedAt ?? 0),
     source: 'cloud',
   }
 }

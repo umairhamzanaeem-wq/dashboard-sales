@@ -678,11 +678,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (reason: string) => {
       if (!userId || !cloudReady.current || !hydrated.current) return
       if (savingCloud.current || pullingCloud.current) return
-      // Ignore echo from our own recent write
-      if (Date.now() - lastLocalSaveAt.current < 900) return
+      if (Date.now() - lastLocalSaveAt.current < 1200) return
 
       pullingCloud.current = true
       try {
+        const beforeScore = progressScore(stateRef.current)
         const loaded = await refreshAppStateIfNewer(
           userId,
           username,
@@ -690,22 +690,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         )
         if (!loaded) return
 
+        const afterScore = progressScore(loaded.state)
+        // Never apply a remote snapshot that would erase local outreach progress
+        if (afterScore < beforeScore) {
+          console.warn('[sync] Ignored weaker remote snapshot', {
+            reason,
+            beforeScore,
+            afterScore,
+          })
+          lastSeenCloudRevision.current = Math.max(
+            lastSeenCloudRevision.current,
+            loaded.cloudUpdatedAt || 0
+          )
+          void flushCloud()
+          return
+        }
+
         lastSeenCloudRevision.current = Math.max(
           lastSeenCloudRevision.current,
           loaded.cloudUpdatedAt || 0
         )
         hydrated.current = false
         dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
-        dispatch({ type: 'ENSURE_TODAY' })
+        // Only roll the calendar if the date actually changed — avoid wiping today
+        if (loaded.state.dailyProgress.date !== todayKey()) {
+          dispatch({ type: 'ENSURE_TODAY' })
+        }
         hydrated.current = true
-        console.info('[sync] Pulled remote changes', { reason })
+        console.info('[sync] Pulled remote changes', { reason, afterScore })
       } catch (err) {
         console.error('[sync] Pull failed', err)
       } finally {
         pullingCloud.current = false
       }
     },
-    [userId, username]
+    [userId, username, flushCloud]
   )
 
   // Load from Supabase when the authenticated user is available / changes
