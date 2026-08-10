@@ -6,6 +6,9 @@ import {
   DEFAULT_TIMELINE,
 } from './defaults'
 import { normalizeTheme } from './theme'
+import { todayKey } from './utils'
+
+const UMAIR_STREAK_FIX_KEY = 'bd-umair-streak-4-v1'
 
 export function storageKeyForUser(username?: string | null): string {
   const user = username?.trim().toLowerCase()
@@ -192,12 +195,39 @@ export function loadState(username?: string | null): AppState {
       if (legacy) raw = legacy
     }
 
-    if (!raw) return createDefaultState()
-    const parsed = JSON.parse(raw) as AppState
-    if (!parsed.version || !parsed.settings || !parsed.dailyProgress) {
-      return createDefaultState()
+    let state = raw
+      ? (() => {
+          const parsed = JSON.parse(raw) as AppState
+          if (!parsed.version || !parsed.settings || !parsed.dailyProgress) {
+            return createDefaultState()
+          }
+          return normalizeState(parsed)
+        })()
+      : createDefaultState()
+
+    // One-time: Umair worked 4 days — set streak to 4
+    const user = username?.trim().toLowerCase()
+    if (user === 'umair' && !localStorage.getItem(UMAIR_STREAK_FIX_KEY)) {
+      const today = todayKey()
+      state = {
+        ...state,
+        settings: {
+          ...state.settings,
+          streak: Math.max(state.settings.streak ?? 0, 4),
+          longestStreak: Math.max(state.settings.longestStreak ?? 0, 4),
+          lastCompletedDate: today,
+          lastStreakAt: new Date().toISOString(),
+        },
+      }
+      localStorage.setItem(UMAIR_STREAK_FIX_KEY, '1')
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...state, updatedAt: Date.now() }))
+      } catch {
+        /* ignore */
+      }
     }
-    return normalizeState(parsed)
+
+    return state
   } catch {
     return createDefaultState()
   }

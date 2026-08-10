@@ -163,6 +163,8 @@ export interface AppSettings {
   revenueCategories: RevenuePlatform[]
   streak: number
   lastCompletedDate: string | null
+  /** ISO timestamp of last Start Day that counted toward streak */
+  lastStreakAt?: string | null
   longestStreak: number
 }
 

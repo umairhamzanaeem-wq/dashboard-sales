@@ -34,6 +34,45 @@ import {
   getMetric,
 } from '@/lib/utils'
 
+const STREAK_WINDOW_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Streak counts when the user Starts Day within 24 hours of their previous streak Start Day.
+ * Same calendar day only counts once.
+ */
+function bumpStreakOnStartDay(settings: AppSettings, startedAt = new Date()): AppSettings {
+  const today = todayKey()
+  if (settings.lastCompletedDate === today) {
+    return settings
+  }
+
+  const lastAtMs = (() => {
+    if (settings.lastStreakAt) {
+      const t = Date.parse(settings.lastStreakAt)
+      if (Number.isFinite(t)) return t
+    }
+    // Migrate older saves that only stored a calendar date
+    if (settings.lastCompletedDate) {
+      const t = Date.parse(`${settings.lastCompletedDate}T12:00:00`)
+      if (Number.isFinite(t)) return t
+    }
+    return null
+  })()
+
+  const within24h =
+    lastAtMs != null && startedAt.getTime() - lastAtMs <= STREAK_WINDOW_MS && startedAt.getTime() >= lastAtMs
+
+  const streak = within24h && settings.streak > 0 ? settings.streak + 1 : 1
+
+  return {
+    ...settings,
+    streak,
+    lastCompletedDate: today,
+    lastStreakAt: startedAt.toISOString(),
+    longestStreak: Math.max(settings.longestStreak ?? 0, streak),
+  }
+}
+
 type Action =
   | { type: 'HYDRATE'; state: AppState }
   | { type: 'RESET' }
@@ -161,13 +200,15 @@ function reducer(state: AppState, action: Action): AppState {
         current.date === today && current.dayStatus === 'not_started'
           ? current
           : createDailyProgress(state.settings.dailyTargets, state.settings.timeline, today)
+      const startedAt = new Date()
       return {
         ...state,
         history,
+        settings: bumpStreakOnStartDay(state.settings, startedAt),
         dailyProgress: {
           ...fresh,
           dayStatus: 'in_progress',
-          dayStartedAt: new Date().toISOString(),
+          dayStartedAt: startedAt.toISOString(),
           dayFinishedAt: null,
         },
       }
@@ -221,25 +262,10 @@ function reducer(state: AppState, action: Action): AppState {
       }
       const history = [entry, ...state.history.filter((h) => h.date !== entry.date)]
 
-      // Streak: count the day if completion is meaningful (>= 50%) or perfect
       const ov = overallProgress(progress)
-      let settings = state.settings
-      if (ov.percent >= 50 && settings.lastCompletedDate !== progress.date) {
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
-        const streak = settings.lastCompletedDate === yKey ? settings.streak + 1 : 1
-        settings = {
-          ...settings,
-          streak,
-          lastCompletedDate: progress.date,
-          longestStreak: Math.max(settings.longestStreak, streak),
-        }
-      }
 
       return {
         ...state,
-        settings,
         history,
         dailyProgress: progress,
         notifications: [
@@ -291,6 +317,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         history,
+        settings: bumpStreakOnStartDay(state.settings, new Date()),
         dailyProgress: {
           ...fresh,
           dayStatus: 'in_progress',
@@ -474,26 +501,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_CONFETTI_SHOWN':
       return { ...state, dailyProgress: { ...state.dailyProgress, confettiShown: true } }
     case 'UPDATE_STREAK': {
-      const today = todayKey()
-      const { percent } = overallProgress(state.dailyProgress)
-      if (percent < 100) return state
-      if (state.settings.lastCompletedDate === today) return state
-
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
-      const streak =
-        state.settings.lastCompletedDate === yKey ? state.settings.streak + 1 : 1
-
-      return {
-        ...state,
-        settings: {
-          ...state.settings,
-          streak,
-          lastCompletedDate: today,
-          longestStreak: Math.max(state.settings.longestStreak, streak),
-        },
-      }
+      // Streak is owned by Start Day (24h window). Keep action as a no-op for compatibility.
+      return state
     }
     default:
       return state
@@ -667,7 +676,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })(),
       })
       dispatch({ type: 'SET_CONFETTI_SHOWN' })
-      dispatch({ type: 'UPDATE_STREAK' })
       dispatch({ type: 'SAVE_DAY_TO_HISTORY' })
       dispatch({
         type: 'ADD_NOTIFICATION',

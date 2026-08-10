@@ -337,6 +337,7 @@ export function createDefaultSettings(): AppSettings {
     revenueCategories: ['Fiverr', 'Upwork', 'Direct Clients', 'Agency', 'Referral'],
     streak: 0,
     lastCompletedDate: null,
+    lastStreakAt: null,
     longestStreak: 0,
   }
 }
