@@ -21,10 +21,32 @@ function normalizeRole(role: string | null | undefined): UserRole {
   return role === 'admin' ? 'admin' : 'user'
 }
 
-export async function fetchProfileForUser(userId: string): Promise<AuthSession | null> {
+export type ProfileFetchResult =
+  | { ok: true; session: AuthSession }
+  | { ok: false; error: string; kind: 'auth' | 'not_found' | 'network' | 'other' }
+
+function isNetworkish(message: string | undefined): boolean {
+  const msg = (message ?? '').toLowerCase()
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('fetcherror') ||
+    msg.includes('timeout') ||
+    msg.includes('offline')
+  )
+}
+
+export async function fetchProfileForUser(userId: string): Promise<ProfileFetchResult> {
   const { data: authData, error: authError } = await supabase.auth.getUser()
   if (authError || !authData.user || authData.user.id !== userId) {
-    return null
+    if (authError && isNetworkish(authError.message)) {
+      return { ok: false, error: 'Network error. Check your connection and try again.', kind: 'network' }
+    }
+    return {
+      ok: false,
+      error: authError?.message || 'Authentication failed',
+      kind: 'auth',
+    }
   }
 
   const { data, error } = await supabase
@@ -35,18 +57,30 @@ export async function fetchProfileForUser(userId: string): Promise<AuthSession |
 
   if (error) {
     console.error('[auth] Failed to load profile', error.message)
-    return null
+    if (isNetworkish(error.message)) {
+      return { ok: false, error: 'Network error. Check your connection and try again.', kind: 'network' }
+    }
+    return { ok: false, error: `Could not load profile: ${error.message}`, kind: 'other' }
   }
-  if (!data) return null
+  if (!data) {
+    return {
+      ok: false,
+      error: 'Profile not found. Contact an administrator.',
+      kind: 'not_found',
+    }
+  }
 
   const row = data as ProfileRow
   return {
-    id: row.id,
-    email: authData.user.email ?? '',
-    username: row.username,
-    displayName: row.display_name,
-    role: normalizeRole(row.role),
-    avatarUrl: row.avatar_url,
+    ok: true,
+    session: {
+      id: row.id,
+      email: authData.user.email ?? '',
+      username: row.username,
+      displayName: row.display_name,
+      role: normalizeRole(row.role),
+      avatarUrl: row.avatar_url,
+    },
   }
 }
 
@@ -59,20 +93,32 @@ export async function signInWithEmailPassword(
     return { ok: false, error: 'Email and password are required' }
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: trimmed,
-    password,
-  })
-
-  if (error) {
-    const msg = error.message?.toLowerCase() ?? ''
-    if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-      return { ok: false, error: 'Invalid email or password' }
+  let data
+  try {
+    const result = await supabase.auth.signInWithPassword({
+      email: trimmed,
+      password,
+    })
+    data = result.data
+    if (result.error) {
+      const msg = result.error.message?.toLowerCase() ?? ''
+      if (isNetworkish(result.error.message)) {
+        return { ok: false, error: 'Network error. Check your connection and try again.' }
+      }
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        return { ok: false, error: 'Invalid email or password' }
+      }
+      if (msg.includes('email not confirmed')) {
+        return { ok: false, error: 'Please confirm your email before signing in' }
+      }
+      return { ok: false, error: result.error.message || 'Authentication failed' }
     }
-    if (msg.includes('email not confirmed')) {
-      return { ok: false, error: 'Please confirm your email before signing in' }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (isNetworkish(message)) {
+      return { ok: false, error: 'Network error. Check your connection and try again.' }
     }
-    return { ok: false, error: error.message || 'Login failed' }
+    return { ok: false, error: message || 'Authentication failed' }
   }
 
   const userId = data.user?.id
@@ -81,14 +127,14 @@ export async function signInWithEmailPassword(
   }
 
   const profile = await fetchProfileForUser(userId)
-  if (!profile) {
+  if (!profile.ok) {
     await supabase.auth.signOut()
-    return { ok: false, error: 'Profile not found. Contact an administrator.' }
+    return { ok: false, error: profile.error }
   }
 
   clearLegacyAuthSession()
-  setActiveAuthProfile(profile)
-  return { ok: true, session: profile }
+  setActiveAuthProfile(profile.session)
+  return { ok: true, session: profile.session }
 }
 
 export async function signOutSupabase(): Promise<void> {

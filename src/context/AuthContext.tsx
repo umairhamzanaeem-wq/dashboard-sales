@@ -50,7 +50,8 @@ async function profileFromSupabaseSession(
   supabaseSession: Session | null
 ): Promise<AuthSession | null> {
   if (!supabaseSession?.user?.id) return null
-  return fetchProfileForUser(supabaseSession.user.id)
+  const result = await fetchProfileForUser(supabaseSession.user.id)
+  return result.ok ? result.session : null
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
