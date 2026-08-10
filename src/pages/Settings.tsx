@@ -28,6 +28,7 @@ const REMINDER_LABELS: Record<Platform, string> = {
   facebook: 'Facebook',
   threads: 'Threads',
   x: 'X Outreach',
+  whatsapp: 'WhatsApp Outreach',
   instagram: 'Instagram',
   upwork: 'Upwork',
   review: 'Daily Review',
@@ -140,7 +141,7 @@ export function SettingsPage() {
     const fresh = createDailyProgress(settings.dailyTargets, settings.timeline, state.dailyProgress.date)
     // Preserve today's completed work where possible by only updating targets
     const platforms = { ...state.dailyProgress.platforms }
-    ;(['linkedin_saad', 'linkedin_umair', 'facebook', 'threads', 'x', 'instagram', 'upwork'] as const).forEach((pid) => {
+    ;(['linkedin_saad', 'linkedin_umair', 'facebook', 'threads', 'x', 'whatsapp', 'instagram', 'upwork'] as const).forEach((pid) => {
       platforms[pid] = {
         ...platforms[pid],
         counters: platforms[pid].counters.map((c) => {
@@ -385,6 +386,9 @@ export function SettingsPage() {
           <TargetGroup title="X Outreach">
             <NumField label="Posts Commented" value={targets.x.comments} onChange={(v) => updateTarget('x', 'comments', v)} />
             <NumField label="People Reached Out" value={targets.x.outreach} onChange={(v) => updateTarget('x', 'outreach', v)} />
+          </TargetGroup>
+          <TargetGroup title="WhatsApp Outreach">
+            <NumField label="Messages Sent" value={targets.whatsapp.messages} onChange={(v) => updateTarget('whatsapp', 'messages', v)} />
           </TargetGroup>
           <TargetGroup title="Instagram">
             <NumField label="Businesses Found" value={targets.instagram.businesses} onChange={(v) => updateTarget('instagram', 'businesses', v)} />

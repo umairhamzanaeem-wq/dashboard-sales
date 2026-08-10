@@ -28,6 +28,7 @@ const PLATFORMS: Platform[] = [
   'facebook',
   'threads',
   'x',
+  'whatsapp',
   'instagram',
   'upwork',
   'review',

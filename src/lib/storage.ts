@@ -25,6 +25,7 @@ const PLATFORM_ORDER: Platform[] = [
   'facebook',
   'threads',
   'x',
+  'whatsapp',
   'instagram',
   'upwork',
   'review',
@@ -70,6 +71,7 @@ function normalizeProgress(
     ...targets,
     threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
     x: { ...DEFAULT_TARGETS.x, ...targets.x },
+    whatsapp: { ...DEFAULT_TARGETS.whatsapp, ...targets.whatsapp },
     instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
   }
   const defaults = createPlatformSections(mergedTargets)
@@ -123,6 +125,10 @@ export function normalizeState(parsed: AppState): AppState {
       x: {
         ...DEFAULT_TARGETS.x,
         ...parsed.settings?.dailyTargets?.x,
+      },
+      whatsapp: {
+        ...DEFAULT_TARGETS.whatsapp,
+        ...parsed.settings?.dailyTargets?.whatsapp,
       },
       instagram: {
         ...DEFAULT_TARGETS.instagram,

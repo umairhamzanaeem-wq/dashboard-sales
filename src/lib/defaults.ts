@@ -18,6 +18,7 @@ export const DEFAULT_TARGETS: DailyTargets = {
   facebook: { comments: 20, dms: 10, posts: 1 },
   threads: { posts: 1, dms: 10 },
   x: { comments: 10, outreach: 10 },
+  whatsapp: { messages: 50 },
   instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
@@ -30,9 +31,10 @@ export const DEFAULT_TIMELINE: TimelineSettings = {
     { id: 'facebook', name: 'Facebook', startTime: '00:00', estimatedMinutes: 60 },
     { id: 'threads', name: 'Threads', startTime: '01:00', estimatedMinutes: 25 },
     { id: 'x', name: 'X Outreach', startTime: '01:25', estimatedMinutes: 30 },
-    { id: 'instagram', name: 'Instagram', startTime: '01:55', estimatedMinutes: 40 },
-    { id: 'upwork', name: 'Upwork', startTime: '02:35', estimatedMinutes: 75 },
-    { id: 'review', name: 'Daily Review & Planning', startTime: '03:50', estimatedMinutes: 45 },
+    { id: 'whatsapp', name: 'WhatsApp Outreach', startTime: '01:55', estimatedMinutes: 40 },
+    { id: 'instagram', name: 'Instagram', startTime: '02:35', estimatedMinutes: 40 },
+    { id: 'upwork', name: 'Upwork', startTime: '03:15', estimatedMinutes: 75 },
+    { id: 'review', name: 'Daily Review & Planning', startTime: '04:30', estimatedMinutes: 45 },
   ],
 }
 
@@ -43,6 +45,7 @@ export const SCHEDULE_MESSAGES: Record<Platform, string> = {
   facebook: 'Facebook Outreach Time.',
   threads: 'Post on Threads & reply to DMs.',
   x: 'Find 10 posts to comment on X and reach out to people.',
+  whatsapp: 'Find contacts on Google and send WhatsApp messages to 50 contacts.',
   instagram: 'Instagram lead outreach time.',
   upwork: 'Search Upwork Jobs.',
   review: "Finish today's review.",
@@ -55,6 +58,7 @@ export const PLATFORM_LOGOS: Partial<Record<Platform, string>> = {
   facebook: '/platforms/facebook.png',
   threads: '/platforms/threads.png',
   x: '/platforms/x.png',
+  whatsapp: '/platforms/whatsapp.svg',
   instagram: '/platforms/instagram.png',
   upwork: '/platforms/upwork.png',
 }
@@ -115,6 +119,29 @@ export function createXSection(targets: DailyTargets): PlatformSection {
   }
 }
 
+export function createWhatsAppSection(targets: DailyTargets): PlatformSection {
+  return {
+    id: 'whatsapp',
+    name: 'WhatsApp Outreach',
+    estimatedMinutes: 40,
+    purpose: 'Find contacts on Google and send WhatsApp messages to 50 contacts.',
+    checklist: makeChecklist([
+      'Find contacts on Google',
+      'Send WhatsApp messages to contacts',
+    ]),
+    counters: [
+      {
+        id: 'messages',
+        label: 'Messages Sent',
+        target: targets.whatsapp?.messages ?? 50,
+        completed: 0,
+      },
+    ],
+    notes: '',
+    completed: false,
+  }
+}
+
 export function createInstagramSection(targets: DailyTargets): PlatformSection {
   return {
     id: 'instagram',
@@ -152,6 +179,7 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
     ...targets,
     threads: { ...DEFAULT_TARGETS.threads, ...targets.threads },
     x: { ...DEFAULT_TARGETS.x, ...targets.x },
+    whatsapp: { ...DEFAULT_TARGETS.whatsapp, ...targets.whatsapp },
     instagram: { ...DEFAULT_TARGETS.instagram, ...targets.instagram },
   }
 
@@ -221,6 +249,7 @@ export function createPlatformSections(targets: DailyTargets): Record<Platform, 
     },
     threads: createThreadsSection(t),
     x: createXSection(t),
+    whatsapp: createWhatsAppSection(t),
     instagram: createInstagramSection(t),
     upwork: {
       id: 'upwork',
@@ -298,9 +327,10 @@ export function createDefaultSettings(): AppSettings {
       facebook: '00:00',
       threads: '01:00',
       x: '01:25',
-      instagram: '01:55',
-      upwork: '02:35',
-      review: '03:50',
+      whatsapp: '01:55',
+      instagram: '02:35',
+      upwork: '03:15',
+      review: '04:30',
     },
     dailyTargets: { ...DEFAULT_TARGETS },
     timeline: structuredClone(DEFAULT_TIMELINE),

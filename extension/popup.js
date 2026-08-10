@@ -11,6 +11,7 @@ const STEPS = [
   { id: 'facebook', name: 'Facebook', short: 'Facebook', url: 'https://www.facebook.com/', logo: 'platforms/facebook.png' },
   { id: 'threads', name: 'Threads', short: 'Threads', url: 'https://www.threads.net/', logo: 'platforms/threads.png' },
   { id: 'x', name: 'X Outreach', short: 'X', url: 'https://x.com/', logo: 'platforms/x.png' },
+  { id: 'whatsapp', name: 'WhatsApp Outreach', short: 'WA', url: 'https://web.whatsapp.com/', logo: 'platforms/whatsapp.svg' },
   { id: 'instagram', name: 'Instagram', short: 'Instagram', url: 'https://www.instagram.com/', logo: 'platforms/instagram.png' },
   { id: 'upwork', name: 'Upwork', short: 'Upwork', url: 'https://www.upwork.com/', logo: 'platforms/upwork.png' },
   { id: 'review', name: 'Daily Review', short: 'Review', url: DASH_URL },
@@ -22,6 +23,7 @@ const DEFAULT_TARGETS = {
   facebook: { comments: 20, dms: 10, posts: 1 },
   threads: { posts: 1, dms: 10 },
   x: { comments: 10, outreach: 10 },
+  whatsapp: { messages: 50 },
   instagram: { businesses: 15, dms: 15 },
   upwork: { jobsReviewed: 30, proposals: 5 },
 }
@@ -160,6 +162,21 @@ function createDefaultState() {
           counters: [
             { id: 'comments', label: 'Posts Commented', target: targets.x.comments, completed: 0 },
             { id: 'outreach', label: 'People Reached Out', target: targets.x.outreach, completed: 0 },
+          ],
+          notes: '',
+          completed: false,
+        },
+        whatsapp: {
+          id: 'whatsapp',
+          name: 'WhatsApp Outreach',
+          estimatedMinutes: 40,
+          purpose: 'Find contacts on Google and send WhatsApp messages to 50 contacts.',
+          checklist: makeChecklist([
+            'Find contacts on Google',
+            'Send WhatsApp messages to contacts',
+          ]),
+          counters: [
+            { id: 'messages', label: 'Messages Sent', target: targets.whatsapp.messages, completed: 0 },
           ],
           notes: '',
           completed: false,
@@ -449,6 +466,10 @@ function patchState(s) {
       ...s.settings.dailyTargets,
       threads: { ...fresh.settings.dailyTargets.threads, ...(s.settings.dailyTargets?.threads || {}) },
       x: { ...fresh.settings.dailyTargets.x, ...(s.settings.dailyTargets?.x || {}) },
+      whatsapp: {
+        ...fresh.settings.dailyTargets.whatsapp,
+        ...(s.settings.dailyTargets?.whatsapp || {}),
+      },
       instagram: {
         ...fresh.settings.dailyTargets.instagram,
         ...(s.settings.dailyTargets?.instagram || {}),

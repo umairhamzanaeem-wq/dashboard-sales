@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       threadsDms: body.threadsDms ?? 0,
       xComments: body.xComments ?? 0,
       xOutreach: body.xOutreach ?? 0,
+      whatsappMessages: body.whatsappMessages ?? 0,
       linkedinConnections: body.linkedinConnections ?? 0,
       linkedinFollowUps: body.linkedinFollowUps ?? 0,
       linkedinComments: body.linkedinComments ?? 0,

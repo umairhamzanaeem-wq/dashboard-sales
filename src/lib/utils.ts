@@ -168,6 +168,7 @@ export function platformColor(platform: string): string {
     facebook: '#1877f2',
     threads: '#ffffff',
     x: '#000000',
+    whatsapp: '#25d366',
     instagram: '#e1306c',
     upwork: '#14a800',
     review: '#f59e0b',
@@ -188,6 +189,7 @@ export function platformLogo(platform: string): string | undefined {
     facebook: '/platforms/facebook.png',
     threads: '/platforms/threads.png',
     x: '/platforms/x.png',
+    whatsapp: '/platforms/whatsapp.svg',
     instagram: '/platforms/instagram.png',
     upwork: '/platforms/upwork.png',
   }

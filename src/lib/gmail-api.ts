@@ -53,6 +53,7 @@ const PLATFORM_ORDER: Platform[] = [
   'facebook',
   'threads',
   'x',
+  'whatsapp',
   'instagram',
   'upwork',
   'review',
@@ -85,6 +86,9 @@ export function buildStartPlatforms(progress: DailyProgress) {
     }
     if (id === 'x') {
       items.push('Find 10 posts and comment · find people and reach out')
+    }
+    if (id === 'whatsapp') {
+      items.push('Find contacts on Google · send WhatsApp messages to 50 contacts')
     }
     if (items.length === 0) items.push('Complete platform workflow')
     platforms.push({ id, name: section.name, items })
@@ -166,6 +170,7 @@ export async function sendDailyPerformanceEmailRequest(input: {
       threadsDms: metric(progress, 'threads', 'dms'),
       xComments: metric(progress, 'x', 'comments'),
       xOutreach: metric(progress, 'x', 'outreach'),
+      whatsappMessages: metric(progress, 'whatsapp', 'messages'),
       linkedinConnections:
         metric(progress, 'linkedin_saad', 'connections') +
         metric(progress, 'linkedin_umair', 'connections'),

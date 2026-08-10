@@ -5,6 +5,7 @@ export type Platform =
   | 'facebook'
   | 'threads'
   | 'x'
+  | 'whatsapp'
   | 'instagram'
   | 'upwork'
   | 'review'
@@ -88,6 +89,9 @@ export interface DailyTargets {
   x: {
     comments: number
     outreach: number
+  }
+  whatsapp: {
+    messages: number
   }
   instagram: {
     businesses: number
