@@ -158,6 +158,8 @@ export interface AppSettings {
   reminderTimes: Record<Platform, string>
   dailyTargets: DailyTargets
   timeline: TimelineSettings
+  /** Platforms enabled for this user by admin strategy (optional for legacy saves) */
+  enabledPlatforms?: Platform[]
   revenueCategories: RevenuePlatform[]
   streak: number
   lastCompletedDate: string | null

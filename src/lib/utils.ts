@@ -83,7 +83,11 @@ export function overallProgress(progress: DailyProgress): {
   tasksTotal: number
   remaining: number
 } {
-  const platforms = Object.values(progress.platforms)
+  const activeIds =
+    progress.timeline.length > 0 ? new Set(progress.timeline.map((t) => t.id)) : null
+  const platforms = Object.values(progress.platforms).filter((p) =>
+    activeIds ? activeIds.has(p.id) : true
+  )
   let tasksCompleted = 0
   let tasksTotal = 0
 

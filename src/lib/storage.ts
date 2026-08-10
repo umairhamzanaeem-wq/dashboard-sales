@@ -139,11 +139,16 @@ export function normalizeState(parsed: AppState): AppState {
       ...defaults.settings.reminderTimes,
       ...parsed.settings?.reminderTimes,
     },
+    enabledPlatforms: parsed.settings?.enabledPlatforms ?? defaults.settings.enabledPlatforms,
     timeline: {
       blocks: (() => {
         const existing = parsed.settings?.timeline?.blocks ?? []
         const ids = new Set(existing.map((b) => b.id))
-        const missing = DEFAULT_TIMELINE.blocks.filter((b) => !ids.has(b.id))
+        const enabled = parsed.settings?.enabledPlatforms
+        const missing = DEFAULT_TIMELINE.blocks.filter((b) => {
+          if (enabled && enabled.length > 0 && !enabled.includes(b.id)) return false
+          return !ids.has(b.id)
+        })
         if (missing.length === 0) return existing
         const next = [...existing]
         for (const block of missing) {
@@ -157,7 +162,9 @@ export function normalizeState(parsed: AppState): AppState {
           }
           next.splice(insertAt, 0, { ...block })
         }
-        return next
+        return enabled && enabled.length > 0
+          ? next.filter((b) => enabled.includes(b.id))
+          : next
       })(),
     },
   }

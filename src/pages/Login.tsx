@@ -78,7 +78,7 @@ export function LoginPage() {
             <Input
               id="username"
               autoComplete="username"
-              placeholder="saad or umair"
+              placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

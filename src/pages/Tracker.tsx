@@ -9,23 +9,17 @@ import { Textarea } from '@/components/ui/input'
 import { formatTime } from '@/lib/utils'
 import { themeAccent } from '@/lib/theme'
 import { Flame, CheckCircle2, ListTodo, Clock, Trophy } from 'lucide-react'
-
-const PLATFORMS: Platform[] = [
-  'fiverr',
-  'linkedin_saad',
-  'linkedin_umair',
-  'facebook',
-  'threads',
-  'x',
-  'whatsapp',
-  'instagram',
-  'upwork',
-]
+import { resolveEnabledPlatforms } from '@/lib/platforms'
+import { useMemo } from 'react'
 
 export function TrackerPage() {
   const { progress, overall, score, settings, dispatch } = useApp()
   const complete = overall.percent >= 100
   const accents = themeAccent(settings.theme)
+  const PLATFORMS = useMemo(
+    () => resolveEnabledPlatforms(settings.enabledPlatforms).filter((p) => p !== 'review'),
+    [settings.enabledPlatforms]
+  )
 
   return (
     <div className="space-y-8">

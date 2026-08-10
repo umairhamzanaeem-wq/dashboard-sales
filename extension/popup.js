@@ -1,7 +1,8 @@
-const USERS = { saad: 'saad', umair: 'umair' }
+const USERS = { admin: 'admin', saad: 'saad', umair: 'umair' }
 const AUTH_KEY = 'bd-auth-session'
 const STATE_PREFIX = 'bd-dashboard-v1'
 const META_KEY = 'bd-ext-meta'
+const USERS_KEY = 'bd-users-registry-v1'
 const DASH_URL = 'https://dashboard-sales-sand.vercel.app/'
 
 const STEPS = [
@@ -32,7 +33,24 @@ let username = null
 let state = null
 let stepIndex = 0
 
-const $ = (id) => document.getElementById(id)
+function getUsersMap(all) {
+  const registry = all?.[USERS_KEY]
+  if (registry?.users?.length) {
+    const map = {}
+    registry.users.forEach((u) => {
+      if (u?.username) map[u.username] = u.password
+    })
+    return map
+  }
+  return { ...USERS }
+}
+
+function isValidUser(all, username, password) {
+  if (!username) return false
+  const map = getUsersMap(all)
+  if (password === undefined) return !!map[username]
+  return map[username] === password
+}
 
 function todayKey() {
   const d = new Date()
@@ -622,20 +640,23 @@ async function bootWithUser(user) {
 async function init() {
   const all = await loadBundle()
   const auth = all[AUTH_KEY]
-  if (auth?.username && USERS[auth.username]) {
+  if (auth?.username && isValidUser(all, auth.username)) {
     await bootWithUser(auth.username)
   } else {
     // Try pull auth from open dashboard
     const tabs = await queryDashboardTabs()
     for (const tab of tabs) {
       const res = await pullFromTab(tab.id)
-      if (res?.auth?.username && USERS[res.auth.username]) {
+      if (res?.auth?.username && isValidUser(all, res.auth.username)) {
         await bootWithUser(res.auth.username)
         return
       }
-      if (res?.username && USERS[res.username]) {
+      if (res?.username && isValidUser(all, res.username)) {
         await bootWithUser(res.username)
         return
+      }
+      if (res?.registry) {
+        await chrome.storage.local.set({ [USERS_KEY]: res.registry })
       }
     }
     showLogin()
@@ -647,7 +668,8 @@ $('btn-login').addEventListener('click', async () => {
   const u = $('login-user').value.trim().toLowerCase()
   const p = $('login-pass').value
   const err = $('login-error')
-  if (USERS[u] !== p) {
+  const all = await loadBundle()
+  if (!isValidUser(all, u, p)) {
     err.textContent = 'Invalid username or password'
     err.classList.remove('hidden')
     return

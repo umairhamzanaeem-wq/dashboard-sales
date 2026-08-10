@@ -9,6 +9,7 @@ import { RevenuePage } from '@/pages/Revenue'
 import { AnalyticsPage } from '@/pages/Analytics'
 import { HistoryPage } from '@/pages/History'
 import { SettingsPage } from '@/pages/Settings'
+import { AdminPage } from '@/pages/Admin'
 import { LoginPage } from '@/pages/Login'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="admin" element={<AdminPage />} />
         </Route>
       </Route>
     </Routes>

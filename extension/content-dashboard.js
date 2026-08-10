@@ -5,6 +5,7 @@
   const STATE_PREFIX = 'bd-dashboard-v1'
   const AUTH_KEY = 'bd-auth-session'
   const META_KEY = 'bd-ext-meta'
+  const USERS_KEY = 'bd-users-registry-v1'
   let applyingFromExt = false
 
   function stateKey(username) {
@@ -20,13 +21,22 @@
     }
   }
 
+  function readUsersRegistry() {
+    try {
+      const raw = localStorage.getItem(USERS_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  }
+
   function readPageState(username) {
     const key = stateKey(username)
     let raw = localStorage.getItem(key)
     if (!raw && username) raw = localStorage.getItem(STATE_PREFIX)
     // Try both users if username missing
     if (!raw) {
-      for (const u of ['umair', 'saad']) {
+      for (const u of ['umair', 'saad', 'admin']) {
         raw = localStorage.getItem(stateKey(u))
         if (raw) {
           try {
@@ -53,12 +63,19 @@
       auth,
       username: packed?.username ?? username,
       state: packed?.state ?? null,
+      registry: readUsersRegistry(),
     }
   }
 
   function pushPageToExtension() {
     if (applyingFromExt) return
     const snap = snapshot()
+    if (snap.registry) {
+      chrome.runtime.sendMessage({
+        type: 'SET_USERS',
+        registry: snap.registry,
+      })
+    }
     if (!snap.state) return
     chrome.runtime.sendMessage({
       type: 'SET_STATE',
@@ -120,6 +137,21 @@
         writer: 'dashboard',
       })
     }
+    if (data?.source === 'bd-dashboard' && data.type === 'BD_USERS_UPDATED' && data.registry) {
+      chrome.runtime.sendMessage({
+        type: 'SET_USERS',
+        registry: data.registry,
+      })
+    }
+  })
+
+  window.addEventListener('bd-users-updated', (event) => {
+    const registry = event.detail?.registry
+    if (!registry) return
+    chrome.runtime.sendMessage({
+      type: 'SET_USERS',
+      registry,
+    })
   })
 
   window.addEventListener('bd-dashboard-save', (event) => {

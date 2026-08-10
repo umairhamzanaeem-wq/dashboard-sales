@@ -20,23 +20,16 @@ import { DaySessionCard } from '@/components/DaySessionCard'
 import { DailyTimeline } from '@/components/Timeline'
 import type { Platform } from '@/types'
 import { motion } from 'framer-motion'
-
-const PLATFORMS: Platform[] = [
-  'fiverr',
-  'linkedin_saad',
-  'linkedin_umair',
-  'facebook',
-  'threads',
-  'x',
-  'whatsapp',
-  'instagram',
-  'upwork',
-  'review',
-]
+import { resolveEnabledPlatforms } from '@/lib/platforms'
+import { useMemo } from 'react'
 
 export function DashboardPage() {
   const { overall, score, settings, todayStats, progress } = useApp()
   const accents = themeAccent(settings.theme)
+  const PLATFORMS = useMemo(
+    () => resolveEnabledPlatforms(settings.enabledPlatforms),
+    [settings.enabledPlatforms]
+  )
 
   const cards: Array<{
     title: string

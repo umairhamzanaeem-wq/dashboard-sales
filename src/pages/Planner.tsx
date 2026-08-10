@@ -7,21 +7,15 @@ import { useApp } from '@/context/AppContext'
 import { ProgressRing } from '@/components/shared'
 import { Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-const PLATFORMS: Platform[] = [
-  'fiverr',
-  'linkedin_saad',
-  'linkedin_umair',
-  'facebook',
-  'threads',
-  'x',
-  'whatsapp',
-  'instagram',
-  'upwork',
-]
+import { resolveEnabledPlatforms } from '@/lib/platforms'
+import { useMemo } from 'react'
 
 export function PlannerPage() {
-  const { overall, progress, dispatch } = useApp()
+  const { overall, progress, dispatch, settings } = useApp()
+  const PLATFORMS = useMemo(
+    () => resolveEnabledPlatforms(settings.enabledPlatforms).filter((p) => p !== 'review'),
+    [settings.enabledPlatforms]
+  )
 
   return (
     <div className="space-y-5">

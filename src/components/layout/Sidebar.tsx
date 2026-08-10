@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   LogOut,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
@@ -38,10 +39,14 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { overall, settings } = useApp()
-  const { username, logout } = useAuth()
+  const { username, logout, isAdmin } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const profile = getUserProfile(username)
+
+  const navItems = isAdmin
+    ? [...NAV, { to: '/admin', label: 'Admin', icon: Shield }]
+    : NAV
 
   const handleLogout = () => {
     logout()
@@ -65,7 +70,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const active = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
           return (
             <NavLink

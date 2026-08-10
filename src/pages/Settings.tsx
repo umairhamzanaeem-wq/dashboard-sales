@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download, Upload, RotateCcw, Bell, Palette, Target, Clock, Mail, Link2, Unlink, Loader2 } from 'lucide-react'
+import { Download, Upload, RotateCcw, Bell, Palette, Target, Clock, Mail, Link2, Unlink, Loader2, KeyRound } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/shared'
@@ -36,7 +36,7 @@ const REMINDER_LABELS: Record<Platform, string> = {
 
 export function SettingsPage() {
   const { state, settings, updateSettings, resetDashboard, importDashboard, dispatch } = useApp()
-  const { username } = useAuth()
+  const { username, changePassword } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
   const [resetOpen, setResetOpen] = useState(false)
@@ -45,12 +45,31 @@ export function SettingsPage() {
   const [gmailConnected, setGmailConnected] = useState(false)
   const [gmailLoading, setGmailLoading] = useState(true)
   const [gmailBusy, setGmailBusy] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const targets = settings.dailyTargets
 
   const flash = (m: string) => {
     setMsg(m)
     setTimeout(() => setMsg(''), 3500)
+  }
+
+  const handleChangePassword = () => {
+    if (newPassword !== confirmPassword) {
+      flash('New passwords do not match')
+      return
+    }
+    const result = changePassword(currentPassword, newPassword)
+    if (!result.ok) {
+      flash(result.error || 'Could not change password')
+      return
+    }
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    flash('Password updated')
   }
 
   useEffect(() => {
@@ -213,6 +232,54 @@ export function SettingsPage() {
       {msg && (
         <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm text-primary">{msg}</div>
       )}
+
+      {/* Password */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base text-foreground font-semibold flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" /> Change password
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 max-w-md">
+          <p className="text-sm text-muted-foreground">
+            Signed in as <strong className="text-foreground">@{username}</strong>. You can update the password
+            assigned by admin anytime.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Current password</Label>
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>New password</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Confirm new password</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <Button
+            onClick={handleChangePassword}
+            disabled={!currentPassword || newPassword.length < 3 || !confirmPassword}
+          >
+            Update password
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Theme */}
       <Card>

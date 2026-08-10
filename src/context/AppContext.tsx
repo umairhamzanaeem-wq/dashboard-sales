@@ -604,6 +604,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hydrated.current = true
   }, [])
 
+  // Reload dashboard data when switching accounts
+  const prevUsername = useRef(username)
+  useEffect(() => {
+    if (prevUsername.current === username) return
+    prevUsername.current = username
+    hydrated.current = false
+    dispatch({ type: 'HYDRATE', state: normalizeState(loadState(username)) })
+    dispatch({ type: 'ENSURE_TODAY' })
+    hydrated.current = true
+  }, [username])
+
   useEffect(() => {
     if (!hydrated.current) return
     saveState(state, username)
