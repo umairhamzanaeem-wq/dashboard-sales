@@ -189,7 +189,7 @@ export function platformLogo(platform: string): string | undefined {
     facebook: '/platforms/facebook.png',
     threads: '/platforms/threads.png',
     x: '/platforms/x.png',
-    whatsapp: '/platforms/whatsapp.svg',
+    whatsapp: '/platforms/whatsapp.png',
     instagram: '/platforms/instagram.png',
     upwork: '/platforms/upwork.png',
   }

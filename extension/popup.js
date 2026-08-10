@@ -11,7 +11,7 @@ const STEPS = [
   { id: 'facebook', name: 'Facebook', short: 'Facebook', url: 'https://www.facebook.com/', logo: 'platforms/facebook.png' },
   { id: 'threads', name: 'Threads', short: 'Threads', url: 'https://www.threads.net/', logo: 'platforms/threads.png' },
   { id: 'x', name: 'X Outreach', short: 'X', url: 'https://x.com/', logo: 'platforms/x.png' },
-  { id: 'whatsapp', name: 'WhatsApp Outreach', short: 'WA', url: 'https://web.whatsapp.com/', logo: 'platforms/whatsapp.svg' },
+  { id: 'whatsapp', name: 'WhatsApp Outreach', short: 'WA', url: 'https://web.whatsapp.com/', logo: 'platforms/whatsapp.png' },
   { id: 'instagram', name: 'Instagram', short: 'Instagram', url: 'https://www.instagram.com/', logo: 'platforms/instagram.png' },
   { id: 'upwork', name: 'Upwork', short: 'Upwork', url: 'https://www.upwork.com/', logo: 'platforms/upwork.png' },
   { id: 'review', name: 'Daily Review', short: 'Review', url: DASH_URL },
