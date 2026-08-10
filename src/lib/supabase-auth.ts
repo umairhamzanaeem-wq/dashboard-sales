@@ -167,6 +167,42 @@ export async function updateSupabasePassword(
   return { ok: true }
 }
 
+export async function updateUserProfile(input: {
+  displayName?: string
+  avatarUrl?: string | null
+}): Promise<{ ok: true; session: AuthSession } | { ok: false; error: string }> {
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData.user) {
+    return { ok: false, error: 'Not signed in' }
+  }
+
+  const patch: { display_name?: string; avatar_url?: string | null } = {}
+  if (input.displayName !== undefined) {
+    const name = input.displayName.trim()
+    if (name.length < 1) return { ok: false, error: 'Display name is required' }
+    if (name.length > 80) return { ok: false, error: 'Display name is too long' }
+    patch.display_name = name
+  }
+  if (input.avatarUrl !== undefined) {
+    patch.avatar_url = input.avatarUrl
+  }
+  if (Object.keys(patch).length === 0) {
+    return { ok: false, error: 'Nothing to update' }
+  }
+
+  const { error } = await supabase.from('profiles').update(patch).eq('id', authData.user.id)
+  if (error) {
+    return { ok: false, error: error.message || 'Failed to update profile' }
+  }
+
+  const profile = await fetchProfileForUser(authData.user.id)
+  if (!profile.ok) {
+    return { ok: false, error: profile.error }
+  }
+  setActiveAuthProfile(profile.session)
+  return { ok: true, session: profile.session }
+}
+
 /** @deprecated Prefer AuthContext profile — registry lookup for local Admin tools */
 export function legacyLocalProfile(username: string | null | undefined) {
   if (!username) return null

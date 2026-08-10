@@ -20,6 +20,7 @@ import {
   signInWithEmailPassword,
   signOutSupabase,
   updateSupabasePassword,
+  updateUserProfile,
 } from '@/lib/supabase-auth'
 
 interface AuthContextValue {
@@ -41,6 +42,10 @@ interface AuthContextValue {
     currentPassword: string,
     newPassword: string
   ) => Promise<{ ok: boolean; error?: string }>
+  updateProfile: (input: {
+    displayName?: string
+    avatarUrl?: string | null
+  }) => Promise<{ ok: boolean; error?: string }>
   refreshSession: () => Promise<void>
 }
 
@@ -60,7 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applySession = useCallback((next: AuthSession | null) => {
     setActiveAuthProfile(next)
-    setSession(next)
+    setSession((prev) => {
+      if (prev === next) return prev
+      if (!prev && !next) return prev
+      if (
+        prev &&
+        next &&
+        prev.id === next.id &&
+        prev.email === next.email &&
+        prev.username === next.username &&
+        prev.displayName === next.displayName &&
+        prev.role === next.role &&
+        prev.avatarUrl === next.avatarUrl
+      ) {
+        return prev
+      }
+      return next
+    })
     if (next) clearLegacyAuthSession()
   }, [])
 
@@ -160,6 +181,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session]
   )
 
+  const updateProfile = useCallback(
+    async (input: { displayName?: string; avatarUrl?: string | null }) => {
+      const result = await updateUserProfile(input)
+      if (!result.ok) return { ok: false, error: result.error }
+      applySession(result.session)
+      return { ok: true }
+    },
+    [applySession]
+  )
+
+  // Keep display name / avatar in sync across devices
+  useEffect(() => {
+    if (!session?.id) return
+    const channel = supabase
+      .channel(`profile-sync:${session.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.id}`,
+        },
+        () => {
+          void refreshSession()
+        }
+      )
+      .subscribe()
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void refreshSession()
+    }, 8000)
+    return () => {
+      clearInterval(pollId)
+      void supabase.removeChannel(channel)
+    }
+  }, [session?.id, refreshSession])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -175,9 +234,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       changePassword,
+      updateProfile,
       refreshSession,
     }),
-    [session, loading, login, logout, changePassword, refreshSession]
+    [session, loading, login, logout, changePassword, updateProfile, refreshSession]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

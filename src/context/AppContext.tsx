@@ -22,10 +22,12 @@ import type {
 import { createDailyProgress, createDefaultState, SCHEDULE_MESSAGES } from '@/lib/defaults'
 import { loadState, saveState, clearState, importState, normalizeState } from '@/lib/storage'
 import {
+  getCloudRevision,
   loadAppStateFromCloud,
   refreshAppStateIfNewer,
   saveAppStateToCloud,
 } from '@/lib/supabase-app-state'
+import { subscribeToAccountSync } from '@/lib/supabase-live-sync'
 import { localHasMeaningfulData, progressScore } from '@/lib/supabase-mappers'
 import { applyTheme, themeAccent } from '@/lib/theme'
 import { useAuth } from '@/context/AuthContext'
@@ -611,6 +613,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cloudReady = useRef(false)
   const savingCloud = useRef(false)
   const cloudDirty = useRef(false)
+  const pullingCloud = useRef(false)
+  const lastLocalSaveAt = useRef(0)
+  const lastSeenCloudRevision = useRef(0)
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notifiedSlots = useRef<Set<string>>(new Set())
   const updatedAtRef = useRef(0)
@@ -629,7 +634,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const snapshot = stateRef.current
-    // Don't let a blank device publish an empty day over real cloud data
     if (!localHasMeaningfulData(snapshot) && progressScore(snapshot) === 0) {
       return
     }
@@ -642,6 +646,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error('[sync] Cloud save failed:', result.error)
         cloudDirty.current = true
         return
+      }
+      lastLocalSaveAt.current = Date.now()
+      try {
+        lastSeenCloudRevision.current = Math.max(
+          lastSeenCloudRevision.current,
+          await getCloudRevision(userId)
+        )
+      } catch {
+        lastSeenCloudRevision.current = Math.max(lastSeenCloudRevision.current, Date.now())
       }
       const remapped =
         result.state.revenue.some((r, i) => r.id !== snapshot.revenue[i]?.id) ||
@@ -661,6 +674,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, username])
 
+  const pullFromCloud = useCallback(
+    async (reason: string) => {
+      if (!userId || !cloudReady.current || !hydrated.current) return
+      if (savingCloud.current || pullingCloud.current) return
+      // Ignore echo from our own recent write
+      if (Date.now() - lastLocalSaveAt.current < 900) return
+
+      pullingCloud.current = true
+      try {
+        const loaded = await refreshAppStateIfNewer(
+          userId,
+          username,
+          lastSeenCloudRevision.current
+        )
+        if (!loaded) return
+
+        lastSeenCloudRevision.current = Math.max(
+          lastSeenCloudRevision.current,
+          loaded.cloudUpdatedAt || 0
+        )
+        hydrated.current = false
+        dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
+        dispatch({ type: 'ENSURE_TODAY' })
+        hydrated.current = true
+        console.info('[sync] Pulled remote changes', { reason })
+      } catch (err) {
+        console.error('[sync] Pull failed', err)
+      } finally {
+        pullingCloud.current = false
+      }
+    },
+    [userId, username]
+  )
+
   // Load from Supabase when the authenticated user is available / changes
   useEffect(() => {
     if (!userId) {
@@ -678,6 +725,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const loaded = await loadAppStateFromCloud(userId, username)
         if (cancelled) return
+        lastSeenCloudRevision.current = loaded.cloudUpdatedAt || (await getCloudRevision(userId))
         dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
         dispatch({ type: 'ENSURE_TODAY' })
       } catch (err) {
@@ -689,7 +737,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           hydrated.current = true
           cloudReady.current = true
-          // Push whatever we ended with (covers local-seed path + post-ENSURE_TODAY)
           window.setTimeout(() => {
             void flushCloud()
           }, 100)
@@ -719,68 +766,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state, username, userId, flushCloud])
 
-  // Periodic flush + flush when leaving the tab (phone switches / laptop sleep)
+  // Flush on hide; poll + realtime while visible so other devices stay in sync
   useEffect(() => {
     if (!userId) return
-
-    const intervalId = setInterval(() => {
-      void flushCloud()
-    }, 5000)
 
     const onHide = () => {
       void flushCloud()
     }
     window.addEventListener('pagehide', onHide)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') onHide()
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        onHide()
+      } else {
+        void pullFromCloud('visibility')
+      }
+    }
+    const onFocus = () => {
+      void pullFromCloud('focus')
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void pullFromCloud('poll')
+    }, 2000)
+
+    let realtimeTimer: ReturnType<typeof setTimeout> | null = null
+    const unsubscribe = subscribeToAccountSync(userId, (source) => {
+      if (source === 'profiles') return
+      if (realtimeTimer) clearTimeout(realtimeTimer)
+      realtimeTimer = setTimeout(() => {
+        void pullFromCloud(`realtime:${source}`)
+      }, 200)
     })
 
     return () => {
-      clearInterval(intervalId)
+      clearInterval(pollId)
+      if (realtimeTimer) clearTimeout(realtimeTimer)
+      unsubscribe()
       window.removeEventListener('pagehide', onHide)
-    }
-  }, [userId, flushCloud])
-
-  // Pull newer cloud data when returning to the tab
-  useEffect(() => {
-    if (!userId) return
-
-    const pullIfNewer = () => {
-      void (async () => {
-        try {
-          // Flush local first so we don't lose in-flight clicks
-          await flushCloud()
-          const newer = await refreshAppStateIfNewer(
-            userId,
-            username,
-            updatedAtRef.current,
-            stateRef.current
-          )
-          if (!newer) return
-          hydrated.current = false
-          cloudReady.current = false
-          dispatch({ type: 'HYDRATE', state: normalizeState(newer) })
-          dispatch({ type: 'ENSURE_TODAY' })
-          hydrated.current = true
-          cloudReady.current = true
-        } catch (err) {
-          console.error('[sync] Focus refresh failed', err)
-        }
-      })()
-    }
-
-    const onFocus = () => pullIfNewer()
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') pullIfNewer()
-    }
-
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [userId, username, flushCloud])
+  }, [userId, flushCloud, pullFromCloud])
 
   // Live sync from browser extension (popup updates while dashboard is open)
   useEffect(() => {

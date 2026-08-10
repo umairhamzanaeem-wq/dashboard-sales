@@ -147,10 +147,12 @@ export async function getCloudRevision(userId: string): Promise<number> {
 
 export async function loadAppStateFromCloud(
   userId: string,
-  username: string | null
+  username: string | null,
+  options?: { preferCloud?: boolean }
 ): Promise<CloudLoadResult> {
   const today = todayKey()
   const local = normalizeState(loadState(username))
+  const preferCloud = options?.preferCloud === true
 
   const [
     settingsRes,
@@ -292,8 +294,13 @@ export async function loadAppStateFromCloud(
   const localScore = progressScore(local)
   const cloudScore = progressScore(cloudState)
 
-  // Prefer richer local progress so a blank phone/laptop cannot wipe real work
-  if (localScore > cloudScore && localHasMeaningfulData(local)) {
+  // On live refresh, trust cloud when it has data (last-write-wins across devices).
+  // On initial login, still allow richer local data to seed/repair empty cloud.
+  if (
+    !preferCloud &&
+    localScore > cloudScore &&
+    localHasMeaningfulData(local)
+  ) {
     const seeded = {
       ...local,
       updatedAt: Math.max(local.updatedAt ?? 0, cloudUpdatedAt, Date.now()),
@@ -313,7 +320,12 @@ export async function loadAppStateFromCloud(
   }
 
   saveState(cloudState, username)
-  console.info('[sync] Loaded cloud state', { cloudScore, localScore, date: cloudState.dailyProgress.date })
+  console.info('[sync] Loaded cloud state', {
+    cloudScore,
+    localScore,
+    preferCloud,
+    date: cloudState.dailyProgress.date,
+  })
   return {
     state: cloudState,
     cloudUpdatedAt: cloudState.updatedAt ?? cloudUpdatedAt,
@@ -360,19 +372,30 @@ export async function saveAppStateToCloud(
       .upsert(settingsPayload, { onConflict: 'user_id' })
     if (settingsError) throw new Error(`user_settings: ${settingsError.message}`)
 
-    const strategyRows = strategiesFromSettings(userId, settings)
-    const { error: strategyError } = await supabase.from('platform_strategies').upsert(
-      strategyRows.map((row) => ({
-        user_id: row.user_id,
-        platform: row.platform,
-        enabled: row.enabled,
-        estimated_minutes: row.estimated_minutes,
-        sort_order: row.sort_order,
-        targets: row.targets ?? {},
-      })),
-      { onConflict: 'user_id,platform' }
-    )
-    if (strategyError) throw new Error(`platform_strategies: ${strategyError.message}`)
+    // Outreach strategy (targets / enabled platforms / minutes) is admin-managed only
+    const { data: roleRow, error: roleError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
+    if (roleError) throw new Error(`profiles: ${roleError.message}`)
+    const canEditStrategy = roleRow?.role === 'admin'
+
+    if (canEditStrategy) {
+      const strategyRows = strategiesFromSettings(userId, settings)
+      const { error: strategyError } = await supabase.from('platform_strategies').upsert(
+        strategyRows.map((row) => ({
+          user_id: row.user_id,
+          platform: row.platform,
+          enabled: row.enabled,
+          estimated_minutes: row.estimated_minutes,
+          sort_order: row.sort_order,
+          targets: row.targets ?? {},
+        })),
+        { onConflict: 'user_id,platform' }
+      )
+      if (strategyError) throw new Error(`platform_strategies: ${strategyError.message}`)
+    }
 
     const progress = nextState.dailyProgress
     const sessionDate = toDateString(progress.date) ?? todayKey()
@@ -536,30 +559,18 @@ export async function saveAppStateToCloud(
   }
 }
 
-/** Fetch cloud state only if newer / richer than local. */
+/** Fetch cloud state only if cloud revision is newer than what this device last saw. */
 export async function refreshAppStateIfNewer(
   userId: string,
   username: string | null,
-  localUpdatedAt: number,
-  localState?: AppState
-): Promise<AppState | null> {
+  lastSeenCloudRevision: number
+): Promise<CloudLoadResult | null> {
   const revision = await getCloudRevision(userId)
-  const local = localState ?? normalizeState(loadState(username))
-  const localScore = progressScore(local)
+  if (revision <= lastSeenCloudRevision) return null
 
-  // Always pull when cloud revision is newer; also pull when local is blank
-  // so a second device picks up work from the first.
-  if (revision <= localUpdatedAt && localScore > 0) {
+  const loaded = await loadAppStateFromCloud(userId, username, { preferCloud: true })
+  if ((loaded.cloudUpdatedAt || 0) <= lastSeenCloudRevision && progressScore(loaded.state) === 0) {
     return null
   }
-
-  const loaded = await loadAppStateFromCloud(userId, username)
-  if (progressScore(loaded.state) < localScore) return null
-  if (
-    (loaded.state.updatedAt ?? 0) <= localUpdatedAt &&
-    progressScore(loaded.state) <= localScore
-  ) {
-    return null
-  }
-  return loaded.state
+  return loaded
 }
