@@ -134,13 +134,21 @@ function reducer(state: AppState, action: Action): AppState {
       return createDefaultState()
     case 'ENSURE_TODAY': {
       const today = todayKey()
-      if (state.dailyProgress.date === today) {
+      const prev = state.dailyProgress
+
+      // Active outreach stays put until the user explicitly finishes the day.
+      // Do not roll the calendar or write History for in_progress / paused days.
+      if (prev.dayStatus === 'in_progress' || prev.dayStatus === 'paused') {
+        return state
+      }
+
+      if (prev.date === today) {
         // Migrate older saves missing dayStatus
-        if (!state.dailyProgress.dayStatus) {
+        if (!prev.dayStatus) {
           return {
             ...state,
             dailyProgress: {
-              ...state.dailyProgress,
+              ...prev,
               dayStatus: 'not_started',
               dayStartedAt: null,
               dayFinishedAt: null,
@@ -149,23 +157,19 @@ function reducer(state: AppState, action: Action): AppState {
         }
         return state
       }
-      // Calendar rolled over — archive previous day if it had work or was finished
-      const prev = state.dailyProgress
-      const ov = overallProgress(prev)
+
+      // Calendar rolled over and previous day was finished (or never started).
+      // Only finished days belong in History — unfinished work is never auto-archived.
       let history = state.history
-      const shouldArchive =
-        prev.dayStatus === 'finished' ||
-        prev.dayStatus === 'in_progress' ||
-        prev.dayStatus === 'paused' ||
-        ov.tasksCompleted > 0
-      if (shouldArchive) {
+      if (prev.dayStatus === 'finished') {
         const entry = {
           ...buildHistoryEntry(prev, state),
-          dayStatus: prev.dayStatus ?? 'finished',
+          dayStatus: 'finished' as const,
           dayFinishedAt: prev.dayFinishedAt ?? new Date().toISOString(),
         }
         history = [entry, ...history.filter((h) => h.date !== prev.date)]
       }
+
       return {
         ...state,
         history,
@@ -175,36 +179,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'START_DAY': {
       const today = todayKey()
       const current = state.dailyProgress
-      // Already working or paused today — use resume / continue instead
-      if (
-        current.date === today &&
-        (current.dayStatus === 'in_progress' || current.dayStatus === 'paused')
-      ) {
+      // Already working or paused — keep the same session (even across midnight)
+      if (current.dayStatus === 'in_progress' || current.dayStatus === 'paused') {
         return state
       }
       // Finished today — Start New Day handles a fresh session
       if (current.date === today && current.dayStatus === 'finished') {
         return state
       }
-      // Fresh start for today (or leftover from another date)
-      let history = state.history
-      if (current.date !== today) {
-        const ov = overallProgress(current)
-        if (
-          current.dayStatus === 'in_progress' ||
-          current.dayStatus === 'paused' ||
-          current.dayStatus === 'finished' ||
-          ov.tasksCompleted > 0
-        ) {
-          history = [
-            {
-              ...buildHistoryEntry(current, state),
-              dayFinishedAt: current.dayFinishedAt ?? new Date().toISOString(),
-            },
-            ...history.filter((h) => h.date !== current.date),
-          ]
-        }
-      }
+      // Fresh start for today. Do not auto-write unfinished prior days to History.
       const fresh =
         current.date === today && current.dayStatus === 'not_started'
           ? current
@@ -212,7 +195,6 @@ function reducer(state: AppState, action: Action): AppState {
       const startedAt = new Date()
       return {
         ...state,
-        history,
         settings: bumpStreakOnStartDay(state.settings, startedAt),
         dailyProgress: {
           ...fresh,
@@ -293,7 +275,6 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'RESUME_DAY': {
       if (state.dailyProgress.dayStatus !== 'paused') return state
-      if (state.dailyProgress.date !== todayKey()) return state
       return {
         ...state,
         dailyProgress: {
@@ -685,6 +666,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (savingCloud.current || pullingCloud.current) return
       if (Date.now() - lastLocalSaveAt.current < 1200) return
 
+      const localStatus = stateRef.current.dailyProgress.dayStatus
+      const localActive = localStatus === 'in_progress' || localStatus === 'paused'
+
       pullingCloud.current = true
       try {
         const beforeScore = progressScore(stateRef.current)
@@ -696,12 +680,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!loaded) return
 
         const afterScore = progressScore(loaded.state)
-        // Never apply a remote snapshot that would erase local outreach progress
-        if (afterScore < beforeScore) {
-          console.warn('[sync] Ignored weaker remote snapshot', {
+        const remoteStatus = loaded.state.dailyProgress.dayStatus
+        const remoteWeaker =
+          afterScore < beforeScore ||
+          (localActive &&
+            (remoteStatus === 'not_started' || afterScore <= beforeScore))
+
+        // Active outreach is sticky until Finish Day — never replace with a weaker remote day
+        if (remoteWeaker) {
+          console.warn('[sync] Kept local active day; ignored weaker remote', {
             reason,
             beforeScore,
             afterScore,
+            localStatus,
+            remoteStatus,
           })
           lastSeenCloudRevision.current = Math.max(
             lastSeenCloudRevision.current,
@@ -717,8 +709,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         )
         hydrated.current = false
         dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
-        // Only roll the calendar if the date actually changed — avoid wiping today
-        if (loaded.state.dailyProgress.date !== todayKey()) {
+        // Never auto-roll an active day; ENSURE_TODAY also guards this
+        if (
+          loaded.state.dailyProgress.dayStatus !== 'in_progress' &&
+          loaded.state.dailyProgress.dayStatus !== 'paused'
+        ) {
           dispatch({ type: 'ENSURE_TODAY' })
         }
         hydrated.current = true
@@ -751,7 +746,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         lastSeenCloudRevision.current = loaded.cloudUpdatedAt || (await getCloudRevision(userId))
         dispatch({ type: 'HYDRATE', state: normalizeState(loaded.state) })
-        if (loaded.state.dailyProgress.date !== todayKey()) {
+        const status = loaded.state.dailyProgress.dayStatus
+        if (status !== 'in_progress' && status !== 'paused') {
           dispatch({ type: 'ENSURE_TODAY' })
         }
         // Auto-attempt Aug 10 recovery when today still looks empty
@@ -766,7 +762,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error('[sync] Failed to load cloud state', err)
         if (cancelled) return
         dispatch({ type: 'HYDRATE', state: normalizeState(loadState(username)) })
-        dispatch({ type: 'ENSURE_TODAY' })
+        const local = loadState(username)
+        if (
+          local.dailyProgress.dayStatus !== 'in_progress' &&
+          local.dailyProgress.dayStatus !== 'paused'
+        ) {
+          dispatch({ type: 'ENSURE_TODAY' })
+        }
       } finally {
         if (!cancelled) {
           hydrated.current = true
@@ -857,8 +859,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!incoming?.dailyProgress || !incoming?.settings) return
       const remoteTs = incoming.updatedAt ?? 0
       if (remoteTs <= updatedAtRef.current) return
+      const incomingStatus = incoming.dailyProgress.dayStatus
+      const localStatus = stateRef.current.dailyProgress.dayStatus
+      const localActive = localStatus === 'in_progress' || localStatus === 'paused'
+      if (
+        localActive &&
+        (incomingStatus === 'not_started' ||
+          progressScore(incoming) < progressScore(stateRef.current))
+      ) {
+        return
+      }
       dispatch({ type: 'HYDRATE', state: normalizeState(incoming) })
-      dispatch({ type: 'ENSURE_TODAY' })
+      if (incomingStatus !== 'in_progress' && incomingStatus !== 'paused') {
+        dispatch({ type: 'ENSURE_TODAY' })
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
@@ -893,12 +907,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })(),
       })
       dispatch({ type: 'SET_CONFETTI_SHOWN' })
-      dispatch({ type: 'SAVE_DAY_TO_HISTORY' })
+      // History is written only when the user clicks Finish Day
       dispatch({
         type: 'ADD_NOTIFICATION',
         notification: {
           title: '🎉 Day Complete!',
-          body: 'You completed every business development activity today. Keep the streak alive!',
+          body: 'You hit 100%. Click Finish Day when you are done to save this session to History.',
           time: currentTimeString(),
           type: 'achievement',
         },
